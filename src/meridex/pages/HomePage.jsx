@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe as Globe2, Activity, Bell, ChartLine as LineChart, Zap, ArrowRight, CircleCheck as CheckCircle } from "lucide-react";
 
@@ -32,6 +32,214 @@ const STATS = [
   { value: "10K+", label: "Active traders" }
 ];
 
+// Realtime sub-solar point
+function getSunCoords() {
+  const now = new Date();
+  const hours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
+  const dayOfYear = Math.floor(
+    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000
+  );
+  const declination = 23.44 * Math.sin(((360 / 365) * (dayOfYear - 81) * Math.PI) / 180);
+  const lng = -(hours - 12) * 15;
+  return { lat: declination, lng };
+}
+
+function latLngToWorldVec(lat, lng) {
+  const phi = ((90 - lat) * Math.PI) / 180;
+  const theta = ((lng + 180) * Math.PI) / 180;
+  const x = -Math.sin(phi) * Math.cos(theta);
+  const y = Math.cos(phi);
+  const z = Math.sin(phi) * Math.sin(theta);
+  return [x, y, z];
+}
+
+const TEX = {
+  day:    "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
+  night:  "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
+  clouds: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png",
+  spec:   "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
+};
+
+const dayNightVertex = `
+  varying vec2 vUv;
+  varying vec3 vObjectNormal;
+  void main() {
+    vUv = uv;
+    vObjectNormal = normalize(normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const dayNightFragment = `
+  uniform sampler2D dayMap;
+  uniform sampler2D nightMap;
+  uniform sampler2D specMap;
+  uniform vec3 sunDirection;
+  varying vec2 vUv;
+  varying vec3 vObjectNormal;
+
+  void main() {
+    vec3 N = normalize(vObjectNormal);
+    vec3 L = normalize(sunDirection);
+    float cosAngle = dot(N, L);
+
+    float latFromEquator = abs(vUv.y - 0.5) * 2.0;
+    float polarFactor = 1.0 - smoothstep(0.78, 0.96, latFromEquator);
+    vec3 polarTint = vec3(0.02, 0.04, 0.06);
+
+    float dayMix = smoothstep(-0.10, 0.25, cosAngle);
+
+    vec3 day = texture2D(dayMap, vUv).rgb;
+    float waterMask = texture2D(specMap, vUv).r;
+    vec3 litDay = day * (0.38 + 0.85 * max(cosAngle, 0.0));
+    float spec = pow(max(cosAngle, 0.0), 32.0) * waterMask * 0.55;
+    litDay += vec3(spec * 1.1, spec * 1.05, spec * 0.95);
+
+    vec3 night = texture2D(nightMap, vUv).rgb;
+    night = night * 2.6;
+    night *= vec3(1.22, 1.02, 0.74);
+    night += vec3(0.012, 0.018, 0.030);
+
+    vec3 color = mix(night, litDay, dayMix);
+
+    float terminator = 1.0 - abs(cosAngle);
+    float rim = pow(terminator, 4.0) * smoothstep(-0.25, 0.05, cosAngle);
+    color += vec3(0.0, 0.45, 0.55) * rim * 0.30;
+
+    color = mix(polarTint, color, polarFactor);
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+function HeroGlobe() {
+  const containerRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return undefined;
+
+    let disposed = false;
+    let cloudMesh = null;
+    let materialRef = null;
+    let sunInterval = null;
+    let cloudRAF = null;
+
+    const loadTexture = (THREE, url) => {
+      return new Promise((resolve, reject) => {
+        new THREE.TextureLoader().load(
+          url,
+          (tex) => {
+            if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = 16;
+            resolve(tex);
+          },
+          undefined,
+          reject
+        );
+      });
+    };
+
+    const init = async () => {
+      const [Globe, THREE] = await Promise.all([
+        import("globe.gl").then((m) => m.default),
+        import("three"),
+      ]);
+      if (disposed) return;
+
+      const [dayTex, nightTex, specTex, cloudsTex] = await Promise.all([
+        loadTexture(THREE, TEX.day),
+        loadTexture(THREE, TEX.night),
+        loadTexture(THREE, TEX.spec),
+        loadTexture(THREE, TEX.clouds),
+      ]);
+      if (disposed) return;
+
+      const sunCoords = getSunCoords();
+      const sun = latLngToWorldVec(sunCoords.lat, sunCoords.lng);
+
+      const customMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          dayMap:   { value: dayTex },
+          nightMap: { value: nightTex },
+          specMap:  { value: specTex },
+          sunDirection: { value: new THREE.Vector3(sun[0], sun[1], sun[2]) },
+          nightBoost: { value: 2.6 },
+        },
+        vertexShader: dayNightVertex,
+        fragmentShader: dayNightFragment,
+      });
+
+      const g = Globe()(node)
+        .backgroundColor("rgba(0,0,0,0)")
+        .showAtmosphere(true)
+        .atmosphereColor("#00E5C7")
+        .atmosphereAltitude(0.22)
+        .width(node.clientWidth)
+        .height(node.clientHeight);
+
+      g.globeMaterial(customMaterial);
+      materialRef = customMaterial;
+
+      const scene = g.scene();
+      const globeRadius = 100;
+      cloudMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(globeRadius * 1.015, 96, 96),
+        new THREE.MeshPhongMaterial({
+          map: cloudsTex,
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+        })
+      );
+      scene.add(cloudMesh);
+
+      g.controls().autoRotate = true;
+      g.controls().autoRotateSpeed = 0.5;
+      g.controls().enableZoom = false;
+      g.pointOfView({ lat: 20, lng: -40, altitude: 2.8 }, 0);
+
+      const driftClouds = () => {
+        if (cloudMesh) cloudMesh.rotation.y += 0.00015;
+        cloudRAF = requestAnimationFrame(driftClouds);
+      };
+      driftClouds();
+
+      const updateSun = () => {
+        const c = getSunCoords();
+        const v = latLngToWorldVec(c.lat, c.lng);
+        if (materialRef) materialRef.uniforms.sunDirection.value.set(v[0], v[1], v[2]);
+      };
+      sunInterval = setInterval(updateSun, 30000);
+
+      setLoaded(true);
+    };
+
+    init();
+
+    return () => {
+      disposed = true;
+      if (sunInterval) clearInterval(sunInterval);
+      if (cloudRAF) cancelAnimationFrame(cloudRAF);
+    };
+  }, []);
+
+  return (
+    <div className="mx-hero-globe-wrap">
+      <div ref={containerRef} className="mx-hero-globe-canvas" data-testid="hero-globe" />
+      {!loaded && (
+        <div className="mx-hero-globe-loader">
+          <div className="mx-loader-text">Meri<span style={{ color: "#00E5C7" }}>dex</span></div>
+        </div>
+      )}
+      <div className="mx-hero-pulse" />
+      <div className="mx-hero-pulse mx-hero-pulse-2" />
+      <div className="mx-hero-pulse mx-hero-pulse-3" />
+    </div>
+  );
+}
+
 export function HomePage() {
   return (
     <section className="mx-page" data-testid="page-home">
@@ -62,12 +270,7 @@ export function HomePage() {
           </div>
         </div>
         <div className="mx-hero-visual">
-          <div className="mx-hero-globe">
-            <Globe2 size={200} strokeWidth={0.5} />
-            <div className="mx-hero-pulse" />
-            <div className="mx-hero-pulse mx-hero-pulse-2" />
-            <div className="mx-hero-pulse mx-hero-pulse-3" />
-          </div>
+          <HeroGlobe />
         </div>
       </div>
 
