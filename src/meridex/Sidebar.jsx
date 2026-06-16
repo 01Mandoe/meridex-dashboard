@@ -1,12 +1,10 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard, Calendar, Newspaper, LineChart,
-  Bell, Star, Activity, Settings, Globe2,
-} from "lucide-react";
+import { Hop as Home, LayoutDashboard, Calendar, Newspaper, ChartLine as LineChart, Bell, Star, Activity, Settings, Globe as Globe2 } from "lucide-react";
 
 const NAV = [
-  { name: "Dashboard", to: "/",          Icon: LayoutDashboard },
+  { name: "Home", to: "/",          Icon: Home },
+  { name: "Dashboard", to: "/dashboard", Icon: LayoutDashboard },
   { name: "Calendar",  to: "/calendar",  Icon: Calendar },
   { name: "News",      to: "/news",      Icon: Newspaper },
   { name: "Markets",   to: "/markets",   Icon: LineChart },

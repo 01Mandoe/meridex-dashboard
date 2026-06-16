@@ -2,6 +2,7 @@ import React from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MeridexLayout } from "@/meridex/MeridexLayout";
+import { HomePage } from "@/meridex/pages/HomePage";
 import { DashboardPage } from "@/meridex/pages/DashboardPage";
 import { CalendarPage } from "@/meridex/pages/CalendarPage";
 import { NewsPage } from "@/meridex/pages/NewsPage";
@@ -16,7 +17,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<MeridexLayout />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<HomePage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/markets" element={<MarketsPage />} />
