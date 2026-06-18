@@ -1,211 +1,11 @@
-import React, { useState } from "react";
-import { ArrowUp, ArrowDown, Star, TrendingUp, TrendingDown, Target, Clock, ChartBar as BarChart3, Landmark } from "lucide-react";
+import React from "react";
+import { ChevronRight, ArrowUp, ArrowDown, Star } from "lucide-react";
 import { toast } from "sonner";
-import { IC, IB, ASSETS, NEWS, EVENTS } from "./data";
+import { IC, IB, REGIONS, ASSETS, NEWS, EVENTS } from "./data";
 import { Sparkline } from "./atoms";
 import { useLivePrices } from "./useLivePrices";
 import { useLiveFeed } from "./useLiveFeed";
 import { useWatchlist } from "./useAlerts";
-
-const CENTRAL_BANKS = [
-  { id: "fed", name: "Federal Reserve", rate: "5.25%", stance: "hawkish", nextMeeting: "Jun 12, 2024", probability: "85% hold" },
-  { id: "boe", name: "Bank of England", rate: "5.00%", stance: "hawkish", nextMeeting: "Jun 20, 2024", probability: "70% hold" },
-  { id: "ecb", name: "European Central Bank", rate: "4.25%", stance: "neutral", nextMeeting: "Jul 18, 2024", probability: "55% cut" },
-  { id: "boj", name: "Bank of Japan", rate: "0.10%", stance: "dovish", nextMeeting: "Jun 14, 2024", probability: "90% hold" },
-];
-
-const SURPRISE_REGIONS = [
-  { id: "us", name: "United States", score: 72, trend: "up", label: "Beating" },
-  { id: "uk", name: "United Kingdom", score: 45, trend: "neutral", label: "Mixed" },
-  { id: "ez", name: "Eurozone", score: 38, trend: "down", label: "Missing" },
-  { id: "cn", name: "China", score: 55, trend: "up", label: "Mixed" },
-  { id: "jp", name: "Japan", score: 61, trend: "up", label: "Beating" },
-];
-
-const VOLATILITY_HISTORY = {
-  "US-CPI": { avg: 85, bullish: 58, bearish: 42, history: [72, -45, 98, 34, -28, 112, 67, -89, 45, 78, -34, 91] },
-  "US-NFP": { avg: 124, bullish: 52, bearish: 48, history: [145, -89, 178, 67, -112, 98, 134, -56, 89, 145, -78, 167] },
-  "default": { avg: 45, bullish: 50, bearish: 50, history: [34, -28, 45, 56, -34, 67, 45, -23, 34, 56, -45, 78] },
-};
-
-function CentralBankTracker() {
-  const stanceColor = (s) => s === "hawkish" ? IC.high : s === "dovish" ? IC.low : IC.medium;
-
-  return (
-    <div className="mx-card mx-cb-card" data-testid="central-bank-tracker">
-      <div className="mx-card-header">
-        <div className="mx-card-title"><Landmark size={14} style={{ marginRight: 6 }} />Central Bank Tracker</div>
-      </div>
-      <div className="mx-cb-list">
-        {CENTRAL_BANKS.map((bank) => (
-          <div key={bank.id} className="mx-cb-row">
-            <div className="mx-cb-info">
-              <div className="mx-cb-name">{bank.name}</div>
-              <div className="mx-cb-next">Next: {bank.nextMeeting}</div>
-            </div>
-            <div className="mx-cb-rate">{bank.rate}</div>
-            <div className="mx-cb-stance" style={{ background: `${stanceColor(bank.stance)}15`, color: stanceColor(bank.stance) }}>
-              <span className="mx-cb-stance-dot" style={{ background: stanceColor(bank.stance) }} />
-              {bank.stance}
-            </div>
-            <div className="mx-cb-prob">{bank.probability}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EconomicSurpriseIndex() {
-  const barColor = (s) => s > 60 ? IC.low : s > 40 ? IC.medium : IC.high;
-
-  return (
-    <div className="mx-card mx-surprise-card" data-testid="economic-surprise">
-      <div className="mx-card-header">
-        <div className="mx-card-title"><BarChart3 size={14} style={{ marginRight: 6 }} />Economic Surprise Index</div>
-      </div>
-      <div className="mx-surprise-list">
-        {SURPRISE_REGIONS.map((region) => (
-          <div key={region.id} className="mx-surprise-row">
-            <div className="mx-surprise-name">{region.name}</div>
-            <div className="mx-surprise-bar-wrap">
-              <div className="mx-surprise-bar">
-                <div className="mx-surprise-fill" style={{ width: `${region.score}%`, background: barColor(region.score) }} />
-              </div>
-              <div className="mx-surprise-center" />
-            </div>
-            <div className="mx-surprise-score" style={{ color: barColor(region.score) }}>{region.score}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mx-surprise-legend">
-        <span className="mx-surprise-legend-item"><span className="mx-surprise-legend-dot" style={{ background: IC.low }} />Beating</span>
-        <span className="mx-surprise-legend-item"><span className="mx-surprise-legend-dot" style={{ background: IC.medium }} />Mixed</span>
-        <span className="mx-surprise-legend-item"><span className="mx-surprise-legend-dot" style={{ background: IC.high }} />Missing</span>
-      </div>
-    </div>
-  );
-}
-
-function NQESBriefings({ ev }) {
-  const eventName = ev?.name || "US CPI";
-
-  return (
-    <div className="mx-card mx-briefings-card" data-testid="nq-es-briefings">
-      <div className="mx-card-header">
-        <div className="mx-card-title"><Target size={14} style={{ marginRight: 6 }} />NQ/ES Pre-event Briefing</div>
-        {ev && <span className="mx-briefings-event-tag" style={{ background: IB[ev.impact], color: IC[ev.impact] }}>{ev.flag} {eventName}</span>}
-      </div>
-
-      <div className="mx-briefings-scenarios">
-        <div className="mx-briefings-scenario bullish">
-          <div className="mx-briefings-scenario-head">
-            <TrendingUp size={14} />
-            <span>Bullish Scenario</span>
-          </div>
-          <div className="mx-briefings-levels">
-            <div className="mx-briefings-level">
-              <span className="mx-briefings-label">NQ Entry:</span>
-              <span className="mx-briefings-val">18,150-18,250</span>
-            </div>
-            <div className="mx-briefings-level">
-              <span className="mx-briefings-label">ES Entry:</span>
-              <span className="mx-briefings-val">5,250-5,300</span>
-            </div>
-          </div>
-          <div className="mx-briefings-target">
-            Target: NQ 18,400+ | Stop: 17,900
-          </div>
-        </div>
-
-        <div className="mx-briefings-scenario bearish">
-          <div className="mx-briefings-scenario-head">
-            <TrendingDown size={14} />
-            <span>Bearish Scenario</span>
-          </div>
-          <div className="mx-briefings-levels">
-            <div className="mx-briefings-level">
-              <span className="mx-briefings-label">NQ Entry:</span>
-              <span className="mx-briefings-val">17,800-17,900</span>
-            </div>
-            <div className="mx-briefings-level">
-              <span className="mx-briefings-label">ES Entry:</span>
-              <span className="mx-briefings-val">5,150-5,200</span>
-            </div>
-          </div>
-          <div className="mx-briefings-target">
-            Target: NQ 17,500 | Stop: 18,100
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-briefings-avoid">
-        <div className="mx-briefings-avoid-head">
-          <Clock size={12} />
-          Time windows to avoid
-        </div>
-        <div className="mx-briefings-avoid-times">
-          <span className="mx-briefings-avoid-time">08:25-08:45</span>
-          <span className="mx-briefings-avoid-time">09:55-10:15</span>
-        </div>
-      </div>
-
-      <div className="mx-briefings-affected">
-        <span className="mx-briefings-affected-label">Markets affected:</span>
-        <span className="mx-briefings-affected-assets">NQ, ES, EURUSD, XAUUSD, TNX</span>
-      </div>
-    </div>
-  );
-}
-
-function VolatilityHistory({ eventId, onClose }) {
-  const data = VOLATILITY_HISTORY[eventId] || VOLATILITY_HISTORY["default"];
-  const maxAbs = Math.max(...data.history.map(Math.abs));
-
-  return (
-    <div className="mx-card mx-vol-history" data-testid="volatility-history">
-      <div className="mx-card-header">
-        <div className="mx-card-title">NQ Volatility History</div>
-        <button className="mx-close" onClick={onClose}>×</button>
-      </div>
-
-      <div className="mx-vol-stats">
-        <div className="mx-vol-stat">
-          <span className="mx-vol-stat-label">Avg Move</span>
-          <span className="mx-vol-stat-value">{data.avg} pts</span>
-        </div>
-        <div className="mx-vol-stat">
-          <span className="mx-vol-stat-label">Bullish</span>
-          <span className="mx-vol-stat-value" style={{ color: IC.low }}>{data.bullish}%</span>
-        </div>
-        <div className="mx-vol-stat">
-          <span className="mx-vol-stat-label">Bearish</span>
-          <span className="mx-vol-stat-value" style={{ color: IC.high }}>{data.bearish}%</span>
-        </div>
-      </div>
-
-      <div className="mx-vol-chart">
-        {data.history.map((val, i) => {
-          const height = Math.abs(val) / maxAbs * 100;
-          const isUp = val > 0;
-          return (
-            <div key={i} className="mx-vol-bar-wrap">
-              <div
-                className="mx-vol-bar"
-                style={{
-                  height: `${height}%`,
-                  background: isUp ? IC.low : IC.high,
-                  boxShadow: `0 0 4px ${isUp ? IC.low : IC.high}`,
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div className="mx-vol-chart-label">Last 12 releases (NQ points)</div>
-    </div>
-  );
-}
 
 function EventDetail({ ev, onClose }) {
   return (
@@ -245,7 +45,6 @@ export function RightPanel({ selected, onClearSelection }) {
   const feed = useLiveFeed();
   const news = feed?.news?.length ? feed.news.slice(0, 4) : NEWS;
   const { add, remove, items, has } = useWatchlist();
-  const [showVolHistory, setShowVolHistory] = useState(false);
 
   const toggleWatch = async (kind, ref, label) => {
     const existing = items.find((i) => i.kind === kind && i.ref === ref);
@@ -260,19 +59,25 @@ export function RightPanel({ selected, onClearSelection }) {
 
   return (
     <section className="mx-col mx-col-right">
-      <CentralBankTracker />
-      <NQESBriefings ev={ev} />
-      <EconomicSurpriseIndex />
-
-      {ev && ev.impact === "high" && (
-        showVolHistory ? (
-          <VolatilityHistory eventId={selected} onClose={() => setShowVolHistory(false)} />
-        ) : (
-          <button className="mx-cta-ghost" onClick={() => setShowVolHistory(true)}>
-            <BarChart3 size={12} style={{ marginRight: 6 }} />View NQ Volatility History
-          </button>
-        )
-      )}
+      <div className="mx-card">
+        <div className="mx-card-title">Regional Risk</div>
+        <div className="mx-regions">
+          {REGIONS.map((r) => (
+            <div key={r.id} className="mx-region-row">
+              <div className="mx-region-name">{r.name}</div>
+              <div className="mx-region-label" style={{ color: IC[r.impact] }}>{r.label}</div>
+              <div className="mx-region-track">
+                <div className="mx-region-fill" style={{ width: `${r.score}%`, background: IC[r.impact], boxShadow: `0 0 8px ${IC[r.impact]}` }} />
+                <div className="mx-region-knob" style={{ left: `calc(${r.score}% - 6px)`, background: IC[r.impact] }} />
+              </div>
+              <div className="mx-region-score">{r.score}</div>
+            </div>
+          ))}
+        </div>
+        <button className="mx-cta-link" data-testid="view-full-report">
+          View full report <ChevronRight size={14} />
+        </button>
+      </div>
 
       <div className="mx-card mx-market-card">
         <div className="mx-card-title">
@@ -298,6 +103,7 @@ export function RightPanel({ selected, onClearSelection }) {
             const spark = tick?.spark ?? a.spark;
             const tickDir = tick?.tickDir ?? 0;
             const flashClass = tickDir > 0 ? "tick-up" : tickDir < 0 ? "tick-down" : "";
+            // Pinned items override severity color with gold to make them stand out
             const sparkColor = affected ? IC[ev.impact] : pinned ? "#FF9F0A" : (up ? IC.low : IC.high);
             return (
               <div
