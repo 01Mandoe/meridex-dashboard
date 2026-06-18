@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe as Globe2, Activity, Bell, ChartLine as LineChart, Zap, ArrowRight, CircleCheck as CheckCircle } from "lucide-react";
 import { EVENTS, IC } from "../data";
+import { EventTicker } from "./EventTicker";
 
 const FEATURES = [
   {
@@ -363,6 +364,7 @@ function HeroGlobe() {
 export function HomePage() {
   return (
     <section className="mx-page" data-testid="page-home">
+      <EventTicker />
       {/* Hero */}
       <div className="mx-hero">
         <div className="mx-hero-glow" />
