@@ -1,44 +1,43 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe as Globe2, Activity, Bell, ChartLine as LineChart, Zap, ArrowRight, CircleCheck as CheckCircle } from "lucide-react";
+import { EVENTS, IC } from "../data";
 
 const FEATURES = [
   {
     icon: Globe2,
     title: "Global Event Tracking",
-    desc: "Real-time economic calendar with 195+ countries. Visualize market-moving events on an interactive 3D globe."
+    desc: "Real-time economic calendar with 195+ countries. Visualize market-moving events on an interactive 3D globe.",
   },
   {
     icon: Activity,
     title: "Live Market Data",
-    desc: "Stream live prices for major forex pairs, gold, and Bitcoin with millisecond precision."
+    desc: "Stream live prices for major forex pairs, gold, and Bitcoin with millisecond precision.",
   },
   {
     icon: Bell,
     title: "Smart Alerts",
-    desc: "Set price thresholds or event-based alerts. Get notified via in-app toasts or Discord webhooks."
+    desc: "Set price thresholds or event-based alerts. Get notified via in-app toasts or Discord webhooks.",
   },
   {
     icon: LineChart,
     title: "Impact Analysis",
-    desc: "See which assets are affected by each event. Make informed decisions before the market moves."
-  }
+    desc: "See which assets are affected by each event. Make informed decisions before the market moves.",
+  },
 ];
 
 const STATS = [
   { value: "195+", label: "Countries monitored" },
   { value: "24/7", label: "Real-time coverage" },
   { value: "98.7%", label: "Event accuracy" },
-  { value: "10K+", label: "Active traders" }
+  { value: "10K+", label: "Active traders" },
 ];
 
 // Realtime sub-solar point
 function getSunCoords() {
   const now = new Date();
   const hours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
-  const dayOfYear = Math.floor(
-    (now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000
-  );
+  const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000);
   const declination = 23.44 * Math.sin(((360 / 365) * (dayOfYear - 81) * Math.PI) / 180);
   const lng = -(hours - 12) * 15;
   return { lat: declination, lng };
@@ -54,13 +53,14 @@ function latLngToWorldVec(lat, lng) {
 }
 
 const TEX = {
-  day:    "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
-  night:  "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
+  day: "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
+  night: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
   clouds: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png",
-  spec:   "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
+  bump: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg",
+  spec: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
 };
 
-const dayNightVertex = `
+const dayNightVertex = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vObjectNormal;
   void main() {
@@ -70,11 +70,12 @@ const dayNightVertex = `
   }
 `;
 
-const dayNightFragment = `
+const dayNightFragment = /* glsl */ `
   uniform sampler2D dayMap;
   uniform sampler2D nightMap;
   uniform sampler2D specMap;
   uniform vec3 sunDirection;
+  uniform float nightBoost;
   varying vec2 vUv;
   varying vec3 vObjectNormal;
 
@@ -96,7 +97,7 @@ const dayNightFragment = `
     litDay += vec3(spec * 1.1, spec * 1.05, spec * 0.95);
 
     vec3 night = texture2D(nightMap, vUv).rgb;
-    night = night * 2.6;
+    night = night * nightBoost;
     night *= vec3(1.22, 1.02, 0.74);
     night += vec3(0.012, 0.018, 0.030);
 
@@ -112,6 +113,65 @@ const dayNightFragment = `
   }
 `;
 
+function loadTexture(THREE, url) {
+  return new Promise((resolve, reject) => {
+    new THREE.TextureLoader().load(
+      url,
+      (tex) => {
+        if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 16;
+        resolve(tex);
+      },
+      undefined,
+      reject,
+    );
+  });
+}
+
+function buildMarker(d) {
+  const root = document.createElement("div");
+  root.className = `mx-marker mx-marker-${d.impact}`;
+  root.style.pointerEvents = "none";
+
+  const pulse = document.createElement("div");
+  pulse.className = "mx-marker-pulse";
+  root.appendChild(pulse);
+
+  const ring = document.createElement("div");
+  ring.className = "mx-marker-ring";
+  root.appendChild(ring);
+
+  const dot = document.createElement("div");
+  dot.className = "mx-marker-dot";
+  root.appendChild(dot);
+
+  const tip = document.createElement("div");
+  tip.className = "mx-marker-tip";
+
+  const flag = document.createElement("span");
+  flag.className = "mx-marker-flag";
+  flag.textContent = d.flag;
+  tip.appendChild(flag);
+
+  const meta = document.createElement("div");
+  meta.className = "mx-marker-meta";
+
+  const name = document.createElement("div");
+  name.className = "mx-marker-name";
+  name.textContent = d.name;
+  meta.appendChild(name);
+
+  const count = document.createElement("div");
+  count.className = "mx-marker-count";
+  count.textContent = `${d.count} event${d.count > 1 ? "s" : ""} today`;
+  meta.appendChild(count);
+
+  tip.appendChild(meta);
+  root.appendChild(tip);
+
+  return root;
+}
+
 function HeroGlobe() {
   const containerRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
@@ -125,21 +185,7 @@ function HeroGlobe() {
     let materialRef = null;
     let sunInterval = null;
     let cloudRAF = null;
-
-    const loadTexture = (THREE, url) => {
-      return new Promise((resolve, reject) => {
-        new THREE.TextureLoader().load(
-          url,
-          (tex) => {
-            if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
-            tex.anisotropy = 16;
-            resolve(tex);
-          },
-          undefined,
-          reject
-        );
-      });
-    };
+    let globeInstance = null;
 
     const init = async () => {
       const [Globe, THREE] = await Promise.all([
@@ -148,22 +194,53 @@ function HeroGlobe() {
       ]);
       if (disposed) return;
 
-      const [dayTex, nightTex, specTex, cloudsTex] = await Promise.all([
+      const [dayTex, nightTex, specTex, bumpTex, cloudsTex] = await Promise.all([
         loadTexture(THREE, TEX.day),
         loadTexture(THREE, TEX.night),
         loadTexture(THREE, TEX.spec),
+        loadTexture(THREE, TEX.bump),
         loadTexture(THREE, TEX.clouds),
       ]);
       if (disposed) return;
+
+      const markers = Object.entries(EVENTS).map(([code, ev]) => ({
+        lat: ev.lat,
+        lng: ev.lon,
+        code,
+        impact: ev.impact,
+        name: ev.name,
+        flag: ev.flag,
+        count: ev.items.length,
+      }));
+
+      const arcs = Object.entries(EVENTS)
+        .filter(([, ev]) => ev.impact !== "low")
+        .map(([code, ev]) => ({
+          id: `${code}-arc`,
+          startLat: ev.lat,
+          startLng: ev.lon,
+          endLat: ev.lat + (Math.random() - 0.5) * 40,
+          endLng: ev.lon + (Math.random() - 0.5) * 40,
+          color: [IC[ev.impact] + "00", IC[ev.impact], IC[ev.impact] + "00"],
+        }));
+
+      const rings = markers.map((m) => ({
+        lat: m.lat,
+        lng: m.lng,
+        color: IC[m.impact],
+        maxR: m.impact === "high" ? 4.5 : m.impact === "medium" ? 3 : 2,
+        propSpeed: m.impact === "high" ? 2.5 : 1.8,
+        repeatPeriod: m.impact === "high" ? 1400 : 2200,
+      }));
 
       const sunCoords = getSunCoords();
       const sun = latLngToWorldVec(sunCoords.lat, sunCoords.lng);
 
       const customMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          dayMap:   { value: dayTex },
+          dayMap: { value: dayTex },
           nightMap: { value: nightTex },
-          specMap:  { value: specTex },
+          specMap: { value: specTex },
           sunDirection: { value: new THREE.Vector3(sun[0], sun[1], sun[2]) },
           nightBoost: { value: 2.6 },
         },
@@ -176,11 +253,27 @@ function HeroGlobe() {
         .showAtmosphere(true)
         .atmosphereColor("#00E5C7")
         .atmosphereAltitude(0.22)
+        .htmlElementsData(markers)
+        .htmlElement((d) => buildMarker(d))
+        .htmlAltitude(0.01)
+        .arcsData(arcs)
+        .arcColor("color")
+        .arcAltitude(0.25)
+        .arcStroke(0.4)
+        .arcDashLength(0.4)
+        .arcDashGap(0.6)
+        .arcDashAnimateTime(2200)
+        .ringsData(rings)
+        .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 110).toString(16).padStart(2, "0")}`)
+        .ringMaxRadius("maxR")
+        .ringPropagationSpeed("propSpeed")
+        .ringRepeatPeriod("repeatPeriod")
         .width(node.clientWidth)
         .height(node.clientHeight);
 
       g.globeMaterial(customMaterial);
       materialRef = customMaterial;
+      globeInstance = g;
 
       const scene = g.scene();
       const globeRadius = 100;
@@ -191,13 +284,16 @@ function HeroGlobe() {
           transparent: true,
           opacity: 0.18,
           depthWrite: false,
-        })
+        }),
       );
       scene.add(cloudMesh);
+
+      bumpTex.colorSpace = THREE.NoColorSpace || THREE.LinearSRGBColorSpace;
 
       g.controls().autoRotate = true;
       g.controls().autoRotateSpeed = 0.5;
       g.controls().enableZoom = false;
+      g.controls().enablePan = false;
       g.pointOfView({ lat: 20, lng: -40, altitude: 2.8 }, 0);
 
       const driftClouds = () => {
@@ -216,10 +312,18 @@ function HeroGlobe() {
       setLoaded(true);
     };
 
+    const handleResize = () => {
+      if (globeInstance && node) {
+        globeInstance.width(node.clientWidth).height(node.clientHeight);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
     init();
 
     return () => {
       disposed = true;
+      window.removeEventListener("resize", handleResize);
       if (sunInterval) clearInterval(sunInterval);
       if (cloudRAF) cancelAnimationFrame(cloudRAF);
     };
@@ -230,12 +334,28 @@ function HeroGlobe() {
       <div ref={containerRef} className="mx-hero-globe-canvas" data-testid="hero-globe" />
       {!loaded && (
         <div className="mx-hero-globe-loader">
-          <div className="mx-loader-text">Meri<span style={{ color: "#00E5C7" }}>dex</span></div>
+          <div className="mx-loader-text">
+            Meri<span style={{ color: "#00E5C7" }}>dex</span>
+          </div>
         </div>
       )}
       <div className="mx-hero-pulse" />
       <div className="mx-hero-pulse mx-hero-pulse-2" />
       <div className="mx-hero-pulse mx-hero-pulse-3" />
+      <div className="mx-hero-legend">
+        <div className="mx-legend-item">
+          <span className="mx-legend-dot" style={{ background: IC.high }} />
+          High
+        </div>
+        <div className="mx-legend-item">
+          <span className="mx-legend-dot" style={{ background: IC.medium }} />
+          Medium
+        </div>
+        <div className="mx-legend-item">
+          <span className="mx-legend-dot" style={{ background: IC.low }} />
+          Low
+        </div>
+      </div>
     </div>
   );
 }
@@ -256,8 +376,8 @@ export function HomePage() {
             <span className="mx-hero-title-accent"> precision</span>
           </h1>
           <p className="mx-hero-desc">
-            Meridex fuses live economic calendars, global event visualization, and instant alerts
-            into a single command center for traders. Know what moves markets — before it happens.
+            Meridex fuses live economic calendars, global event visualization, and instant alerts into a single command
+            center for traders. Know what moves markets — before it happens.
           </p>
           <div className="mx-hero-ctas">
             <Link to="/dashboard" className="mx-cta-primary mx-cta-lg">
@@ -347,9 +467,15 @@ export function HomePage() {
             </Link>
           </div>
           <ul className="mx-final-cta-perks">
-            <li><CheckCircle size={14} /> Free to use</li>
-            <li><CheckCircle size={14} /> No credit card required</li>
-            <li><CheckCircle size={14} /> Instant access</li>
+            <li>
+              <CheckCircle size={14} /> Free to use
+            </li>
+            <li>
+              <CheckCircle size={14} /> No credit card required
+            </li>
+            <li>
+              <CheckCircle size={14} /> Instant access
+            </li>
           </ul>
         </div>
       </div>
