@@ -1,17 +1,19 @@
 import React from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { Sidebar } from "./Sidebar";
 import { AlertEngine } from "./AlertEngine";
 
 export function MeridexLayout() {
+  const location = useLocation();
+  const isHome = location.pathname === "/";
+
   return (
     <main className="meridex-root" data-testid="meridex-root">
-      <Sidebar />
-      <div className="mx-grid mx-grid-flex">
+      {!isHome && <Sidebar />}
+      <div className={`mx-grid ${isHome ? "" : "mx-grid-flex"}`}>
         <Outlet />
       </div>
-      {/* Headless engine that fires toasts when active alerts cross threshold */}
       <AlertEngine />
       <Toaster
         theme="dark"
