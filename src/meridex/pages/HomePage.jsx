@@ -8,10 +8,10 @@ import {
 } from "framer-motion";
 import { Zap, Radar, Landmark, ArrowRight, ChevronDown } from "lucide-react";
 import { EVENTS, IC } from "../data";
-import { useParticleSystem } from "../hooks/useParticleSystem";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 
-const TEAL = "#00C9A7";
+const ACCENT = "#00e5c7";
+const ACCENT_DARK = "#1aa994";
 
 /* ================================================================ */
 /*  GLOBE  UTILS                                                    */
@@ -33,6 +33,7 @@ function latLngToWorldVec(lat, lng) {
 const TEX = {
   day: "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
   night: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
+  clouds: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png",
   spec: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
   bump: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg",
 };
@@ -102,7 +103,6 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
   const starsRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
 
-  // Scroll-driven POV transforms (spring-smoothed)
   const altitude = useSpring(
     useTransform(scrollYProgress, [0, 0.25, 0.5, 0.75, 1], [2.8, 1.8, 1.5, 2.2, 3.5]),
     { stiffness: 60, damping: 20, mass: 0.8 },
@@ -117,7 +117,6 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
   );
   const autoRotateSpeed = useTransform(scrollYProgress, [0, 0.5, 1], [0.35, 1.2, 0.5]);
 
-  // Init globe once
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return undefined;
@@ -130,11 +129,12 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
       ]);
       if (disposed) return;
 
-      const [dayTex, nightTex, specTex, bumpTex] = await Promise.all([
+      const [dayTex, nightTex, specTex, , cloudsTex] = await Promise.all([
         loadTexture(THREE, TEX.day),
         loadTexture(THREE, TEX.night),
         loadTexture(THREE, TEX.spec),
         loadTexture(THREE, TEX.bump),
+        loadTexture(THREE, TEX.clouds),
       ]);
       if (disposed) return;
 
@@ -169,7 +169,7 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
       const g = Globe()(node)
         .backgroundColor("rgba(0,0,0,0)")
         .showAtmosphere(true)
-        .atmosphereColor(TEAL)
+        .atmosphereColor(ACCENT)
         .atmosphereAltitude(0.22)
         .globeMaterial(material)
         .htmlElementsData(markers)
@@ -202,13 +202,13 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
       g.pointOfView({ lat: 20, lng: -40, altitude: 2.8 }, 0);
       globeRef.current = g;
 
-      // Cloud layer (Three.js mesh — opacity driven by scroll)
+      // Real cloud layer using actual cloud texture
       const scene = g.scene();
       const globeRadius = 100;
       const cloudMesh = new THREE.Mesh(
         new THREE.SphereGeometry(globeRadius * 1.015, 96, 96),
         new THREE.MeshPhongMaterial({
-          map: bumpTex,
+          map: cloudsTex,
           transparent: true,
           opacity: 0.0,
           depthWrite: false,
@@ -217,7 +217,7 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
       scene.add(cloudMesh);
       cloudMeshRef.current = cloudMesh;
 
-      // Starfield (Three.js points — fades out entering atmosphere)
+      // Starfield
       const starGeo = new THREE.BufferGeometry();
       const starCount = 4000;
       const starPos = new Float32Array(starCount * 3);
@@ -236,7 +236,6 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
       scene.add(stars);
       starsRef.current = stars;
 
-      // Sun update
       const sunInterval = setInterval(() => {
         const c = getSunCoords();
         const v = latLngToWorldVec(c.lat, c.lng);
@@ -265,7 +264,7 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
     };
   }, []);
 
-  // Drive globe POV from scroll transforms + mouse parallax
+  // Drive globe POV from scroll + mouse parallax
   useEffect(() => {
     let raf = null;
     const update = () => {
@@ -283,14 +282,15 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
         }, 0);
         g.controls().autoRotateSpeed = autoRotateSpeed.get();
 
-        // Cloud opacity ramps in Scene 2, out by Scene 5
+        // Real cloud opacity — ramps in Scene 2, stays through Scene 4
         if (cloudMeshRef.current) {
           const p = scrollYProgress.get();
           let cloudOp = 0;
-          if (p > 0.15 && p < 0.5) cloudOp = ((p - 0.15) / 0.35) * 0.25;
-          else if (p >= 0.5 && p < 0.85) cloudOp = 0.25;
+          if (p > 0.12 && p < 0.5) cloudOp = ((p - 0.12) / 0.38) * 0.45;
+          else if (p >= 0.5 && p < 0.88) cloudOp = 0.45;
+          else if (p >= 0.88) cloudOp = Math.max(0, 0.45 - (p - 0.88) * 4);
           cloudMeshRef.current.material.opacity = cloudOp;
-          cloudMeshRef.current.rotation.y += 0.0002 + p * 0.0008;
+          cloudMeshRef.current.rotation.y += 0.0003 + p * 0.001;
         }
 
         // Stars fade out entering atmosphere
@@ -319,7 +319,7 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
             arcs.push({
               startLat: evA.lat, startLng: evA.lon,
               endLat: evB.lat, endLng: evB.lon,
-              color: ["#00C9A700", "#00C9A7", "#00C9A700"],
+              color: [`${ACCENT}00`, ACCENT, `${ACCENT}00`],
             });
           }
         }
@@ -343,60 +343,18 @@ function ScrollGlobe({ scrollYProgress, mouseRef }) {
     <div
       ref={containerRef}
       className="mx-scroll-globe-container"
-      style={{ opacity: loaded ? 1 : 0, transition: "opacity 1s ease" }}
+      style={{ opacity: loaded ? 1 : 0, transition: "opacity 1.2s ease" }}
     />
   );
-}
-
-/* ================================================================ */
-/*  CLOUD  OVERLAY  — CSS animated cloud divs over the globe        */
-/* ================================================================ */
-function CloudOverlay({ scrollYProgress }) {
-  const opacity = useTransform(scrollYProgress, [0.1, 0.3, 0.6, 0.8], [0, 0.4, 0.5, 0]);
-  const cloudData = [
-    { size: 300, top: "15%", left: "10%", delay: 0, duration: 60 },
-    { size: 400, top: "50%", left: "60%", delay: 5, duration: 80 },
-    { size: 250, top: "70%", left: "20%", delay: 10, duration: 50 },
-    { size: 350, top: "25%", left: "70%", delay: 3, duration: 70 },
-    { size: 200, top: "60%", left: "45%", delay: 7, duration: 45 },
-  ];
-  return (
-    <motion.div className="mx-scroll-clouds" style={{ opacity }}>
-      {cloudData.map((c, i) => (
-        <div
-          key={i}
-          className="mx-scroll-cloud"
-          style={{
-            width: c.size,
-            height: c.size * 0.6,
-            top: c.top,
-            left: c.left,
-            animationDelay: `${c.delay}s`,
-            animationDuration: `${c.duration}s`,
-          }}
-        />
-      ))}
-    </motion.div>
-  );
-}
-
-/* ================================================================ */
-/*  PARTICLE  CANVAS  — drifting particles for Scene 1             */
-/* ================================================================ */
-function ParticleCanvas({ scrollYProgress }) {
-  const canvasRef = useRef(null);
-  const opacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [1, 0.5, 0]);
-  useParticleSystem(canvasRef, { count: 80, speed: 0.5, color: "rgba(0, 201, 167, 0.5)" });
-  return <motion.canvas ref={canvasRef} className="mx-scroll-particles" style={{ opacity }} />;
 }
 
 /* ================================================================ */
 /*  STARFIELD  OVERLAY  — CSS stars that fade out entering atmo    */
 /* ================================================================ */
 function StarfieldOverlay({ scrollYProgress }) {
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.35], [0.5, 0.25, 0]);
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.35], [0.4, 0.2, 0]);
   const stars = useRef(
-    Array.from({ length: 120 }, () => ({
+    Array.from({ length: 100 }, () => ({
       x: Math.random() * 100,
       y: Math.random() * 100,
       size: 0.5 + Math.random() * 1.5,
@@ -423,11 +381,48 @@ function StarfieldOverlay({ scrollYProgress }) {
 }
 
 /* ================================================================ */
-/*  SCENE  1  — THE OPENING (text + arrow only, globe is fixed)    */
+/*  BRAND  LOGO  — top-left, matches sidebar logo                   */
+/* ================================================================ */
+function BrandLogo() {
+  return (
+    <div className="mx-scroll-brand">
+      <div className="mx-scroll-brand-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+          <ellipse cx="8" cy="8" rx="2.8" ry="6.5" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.3" />
+        </svg>
+      </div>
+      <span className="mx-scroll-brand-text">Meri<span>dex</span></span>
+    </div>
+  );
+}
+
+/* ================================================================ */
+/*  SCROLL  INDICATOR  — cinematic animated mouse/arrow             */
+/* ================================================================ */
+function ScrollIndicator({ scrollYProgress }) {
+  const opacity = useTransform(scrollYProgress, [0, 0.05], [1, 0]);
+  return (
+    <motion.div className="mx-scroll-indicator" style={{ opacity }}>
+      <span>Scroll</span>
+      <div className="mx-scroll-indicator-track">
+        <motion.div
+          className="mx-scroll-indicator-dot"
+          animate={{ y: [0, 20, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+/* ================================================================ */
+/*  SCENE  1  — THE OPENING                                         */
 /* ================================================================ */
 function Scene1({ scrollYProgress, onEnter }) {
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
-  const contentY = useTransform(scrollYProgress, [0, 0.1], [0, -40]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 0.08], [0, -30]);
 
   return (
     <section className="mx-scroll-scene mx-scroll-scene1">
@@ -435,10 +430,14 @@ function Scene1({ scrollYProgress, onEnter }) {
         className="mx-scroll-hero-content"
         style={{ opacity: contentOpacity, y: contentY }}
       >
+        <div className="mx-scroll-hero-eyebrow">
+          <span className="mx-scroll-hero-eyebrow-dot" />
+          Global Economic Intelligence
+        </div>
         <h1 className="mx-scroll-headline">
           Markets move fast.
           <br />
-          <span style={{ color: TEAL }}>We move faster.</span>
+          <span className="mx-scroll-headline-accent">We move faster.</span>
         </h1>
         <p className="mx-scroll-subtitle">
           Real-time global economic intelligence built for serious futures traders.
@@ -446,7 +445,7 @@ function Scene1({ scrollYProgress, onEnter }) {
         <div className="mx-scroll-btns">
           <button className="mx-scroll-btn mx-scroll-btn--primary" onClick={onEnter}>
             Enter Meridex
-            <ArrowRight size={16} />
+            <ArrowRight size={15} />
           </button>
           <button className="mx-scroll-btn mx-scroll-btn--ghost">
             See how it works
@@ -454,18 +453,7 @@ function Scene1({ scrollYProgress, onEnter }) {
         </div>
       </motion.div>
 
-      <motion.div
-        className="mx-scroll-arrow-hint"
-        style={{ opacity: contentOpacity }}
-      >
-        <span>Scroll to explore</span>
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <ChevronDown size={20} color={TEAL} />
-        </motion.div>
-      </motion.div>
+      <ScrollIndicator scrollYProgress={scrollYProgress} />
     </section>
   );
 }
@@ -523,7 +511,7 @@ function Scene3({ scrollYProgress }) {
             transition={{ duration: 0.7, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="mx-scroll-card-icon">
-              <card.icon size={22} />
+              <card.icon size={20} />
             </div>
             <h3 className="mx-scroll-card-title">{card.title}</h3>
             <p className="mx-scroll-card-desc">{card.desc}</p>
@@ -631,7 +619,7 @@ function ScrollProgressBar({ scrollYProgress }) {
 export function HomePage() {
   const containerRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
-  const [flashing, setFlashing] = useState(false);
+  const [fading, setFading] = useState(false);
   const navigate = useNavigate();
 
   const { scrollYProgress } = useScroll({
@@ -639,7 +627,6 @@ export function HomePage() {
     offset: ["start start", "end end"],
   });
 
-  // Mouse parallax tracking
   useEffect(() => {
     const onMouseMove = (e) => {
       mouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -650,26 +637,35 @@ export function HomePage() {
   }, []);
 
   const handleEnter = useCallback(() => {
-    setFlashing(true);
-    setTimeout(() => navigate("/dashboard"), 600);
+    setFading(true);
+    setTimeout(() => navigate("/dashboard"), 800);
   }, [navigate]);
 
   return (
     <div className="mx-scroll-root" ref={containerRef}>
-      {flashing && <div className="mx-scroll-flash" />}
+      {fading && <div className="mx-scroll-fade-to-black" />}
 
-      {/* Persistent fixed globe — stays across all scenes */}
+      {/* Ambient background glows matching dashboard */}
+      <div className="mx-scroll-ambient" />
+
+      {/* Persistent fixed globe */}
       <div className="mx-scroll-globe-fixed">
         <ScrollGlobe scrollYProgress={scrollYProgress} mouseRef={mouseRef} />
-        <CloudOverlay scrollYProgress={scrollYProgress} />
       </div>
 
-      {/* Persistent overlays */}
-      <ParticleCanvas scrollYProgress={scrollYProgress} />
+      {/* Starfield (pointer-events: none, won't block scroll) */}
       <StarfieldOverlay scrollYProgress={scrollYProgress} />
+
+      {/* Vignette */}
+      <div className="mx-scroll-vignette" />
+
+      {/* Brand logo top-left */}
+      <BrandLogo />
+
+      {/* Scroll progress bar */}
       <ScrollProgressBar scrollYProgress={scrollYProgress} />
 
-      {/* Scene overlays — each is 100vh, stacked vertically */}
+      {/* Scene overlays */}
       <Scene1 scrollYProgress={scrollYProgress} onEnter={handleEnter} />
       <Scene2 scrollYProgress={scrollYProgress} />
       <Scene3 scrollYProgress={scrollYProgress} />
