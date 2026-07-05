@@ -162,7 +162,7 @@ button {
 }
 
 /* Home page breaks out of the grid entirely */
-.mx-grid:has(> .mx-scroll-root) {
+.mx-grid:has(> .mx-land-page) {
   display: block;
   padding: 0;
   overflow: visible;
@@ -1667,9 +1667,9 @@ button {
   box-shadow: 0 0 6px currentColor;
 }
 
-/* ---------- SCROLL CINEMATIC HOME ---------- */
+/* ---------- LANDING PAGE ---------- */
 
-.mx-scroll-root {
+.mx-land-page {
   background: #050810;
   color: #e6ecf5;
   position: relative;
@@ -1677,8 +1677,8 @@ button {
   scroll-behavior: smooth;
 }
 
-/* Ambient background glows — matches dashboard .meridex-root */
-.mx-scroll-ambient {
+/* Ambient glows matching dashboard */
+.mx-land-ambient {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -1688,54 +1688,28 @@ button {
     radial-gradient(900px 600px at 100% 100%, rgba(167, 139, 250, 0.04), transparent 60%);
 }
 
-/* Fixed globe container */
-.mx-scroll-globe-fixed {
+/* Fixed globe */
+.mx-land-globe-fixed {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 1;
   pointer-events: none;
 }
 
-.mx-scroll-globe-container {
-  width: 100vw;
-  height: 100vh;
-}
-
-.mx-scroll-globe-container canvas {
-  display: block;
-}
-
-/* Starfield — pointer-events: none so it never blocks scroll */
-.mx-scroll-stars {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.mx-scroll-star {
-  position: absolute;
-  border-radius: 50%;
-  background: #fff;
-  animation: mx-scroll-star-twinkle 3s ease-in-out infinite;
-}
-
-@keyframes mx-scroll-star-twinkle {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.8; }
-}
-
-/* Vignette for cinematic depth */
-.mx-scroll-vignette {
+/* Vignette */
+.mx-land-vignette {
   position: fixed;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  background: radial-gradient(ellipse 85% 65% at 50% 50%, transparent 45%, rgba(5, 8, 16, 0.5) 100%);
+  background: radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(5, 8, 16, 0.55) 100%);
 }
 
-/* Brand logo — top-left, matches sidebar */
-.mx-scroll-brand {
+/* Brand logo */
+.mx-land-brand {
   position: fixed;
   top: 22px;
   left: 24px;
@@ -1746,7 +1720,7 @@ button {
   pointer-events: none;
 }
 
-.mx-scroll-brand-mark {
+.mx-land-brand-mark {
   width: 30px;
   height: 30px;
   border-radius: 9px;
@@ -1759,68 +1733,64 @@ button {
   box-shadow: 0 0 14px rgba(0, 229, 199, 0.15);
 }
 
-.mx-scroll-brand-text {
+.mx-land-brand-text {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.3px;
   color: #e6ecf5;
 }
 
-.mx-scroll-brand-text span {
-  color: #00e5c7;
-}
+.mx-land-brand-text span { color: #00e5c7; }
 
-/* Scroll progress bar */
-.mx-scroll-progress-bar {
+/* Progress bar */
+.mx-land-progress {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
   width: 2px;
-  background: rgba(255, 255, 255, 0.03);
   z-index: 100;
   transform-origin: top;
-  background: linear-gradient(180deg, #00e5c7, rgba(0, 229, 199, 0.15));
+  background: linear-gradient(180deg, #00e5c7, rgba(0, 229, 199, 0.1));
 }
 
-/* Fade-to-black transition (replaces white flash) */
-.mx-scroll-fade-to-black {
+/* Fade to black transition */
+.mx-land-fade-black {
   position: fixed;
   inset: 0;
   z-index: 9999;
   background: #050810;
-  animation: mx-scroll-fade-black 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: mx-land-fade 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 
-@keyframes mx-scroll-fade-black {
-  0%   { opacity: 0; }
+@keyframes mx-land-fade {
+  0% { opacity: 0; }
   100% { opacity: 1; }
 }
 
-/* ── Scene base ── */
-.mx-scroll-scene {
+/* ── Sections ── */
+.mx-land-section {
   position: relative;
-  height: 100vh;
-  width: 100%;
   z-index: 10;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   overflow: hidden;
 }
 
-/* ── Scene 1: Opening ── */
-.mx-scroll-scene1 {
+/* ── Hero ── */
+.mx-land-hero {
   justify-content: flex-start;
 }
 
-.mx-scroll-hero-content {
+.mx-land-hero-content {
   padding: 0 56px;
-  max-width: 580px;
+  max-width: 600px;
   z-index: 11;
 }
 
-.mx-scroll-hero-eyebrow {
+.mx-land-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1836,22 +1806,22 @@ button {
   margin-bottom: 24px;
 }
 
-.mx-scroll-hero-eyebrow-dot {
+.mx-land-eyebrow-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: #00e5c7;
   box-shadow: 0 0 6px #00e5c7;
-  animation: mx-scroll-eyebrow-pulse 2s ease-in-out infinite;
+  animation: mx-land-pulse 2s ease-in-out infinite;
 }
 
-@keyframes mx-scroll-eyebrow-pulse {
+@keyframes mx-land-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 
-.mx-scroll-headline {
-  font-size: 56px;
+.mx-land-headline {
+  font-size: 58px;
   font-weight: 800;
   letter-spacing: -2.5px;
   line-height: 1.02;
@@ -1859,25 +1829,25 @@ button {
   margin: 0 0 20px;
 }
 
-.mx-scroll-headline-accent {
+.mx-land-headline-accent {
   color: #00e5c7;
   text-shadow: 0 0 40px rgba(0, 229, 199, 0.3);
 }
 
-.mx-scroll-subtitle {
+.mx-land-subtitle {
   font-size: 15px;
   color: #8794a8;
-  line-height: 1.55;
+  line-height: 1.6;
   margin: 0 0 36px;
-  max-width: 420px;
+  max-width: 440px;
 }
 
-.mx-scroll-btns {
+.mx-land-btns {
   display: flex;
   gap: 12px;
 }
 
-.mx-scroll-btn {
+.mx-land-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1892,37 +1862,37 @@ button {
   letter-spacing: 0.2px;
 }
 
-.mx-scroll-btn--primary {
+.mx-land-btn--primary {
   background: #00e5c7;
   color: #06121a;
   box-shadow: 0 0 20px rgba(0, 229, 199, 0.2);
 }
 
-.mx-scroll-btn--primary:hover {
+.mx-land-btn--primary:hover {
   filter: brightness(1.08);
   box-shadow: 0 0 32px rgba(0, 229, 199, 0.35);
   transform: translateY(-1px);
 }
 
-.mx-scroll-btn--ghost {
+.mx-land-btn--ghost {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #e6ecf5;
   backdrop-filter: blur(8px);
 }
 
-.mx-scroll-btn--ghost:hover {
+.mx-land-btn--ghost:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.mx-scroll-btn--lg {
+.mx-land-btn--lg {
   padding: 15px 38px;
   font-size: 14px;
 }
 
-/* Cinematic scroll indicator */
-.mx-scroll-indicator {
+/* Scroll cue */
+.mx-land-scroll-cue {
   position: absolute;
   bottom: 36px;
   left: 50%;
@@ -1934,7 +1904,7 @@ button {
   z-index: 11;
 }
 
-.mx-scroll-indicator span {
+.mx-land-scroll-cue span {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 2.5px;
@@ -1942,7 +1912,7 @@ button {
   font-weight: 600;
 }
 
-.mx-scroll-indicator-track {
+.mx-land-scroll-cue-track {
   width: 22px;
   height: 36px;
   border: 1.5px solid rgba(0, 229, 199, 0.25);
@@ -1952,7 +1922,7 @@ button {
   padding-top: 6px;
 }
 
-.mx-scroll-indicator-dot {
+.mx-land-scroll-cue-dot {
   width: 3px;
   height: 6px;
   border-radius: 2px;
@@ -1960,63 +1930,77 @@ button {
   box-shadow: 0 0 6px #00e5c7;
 }
 
-/* ── Scene 2: Atmosphere ── */
-.mx-scroll-scene2 {
-  justify-content: flex-start;
+/* ── Section label (shared) ── */
+.mx-land-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #00e5c7;
+  margin-bottom: 16px;
 }
 
-.mx-scroll-scene2-text {
-  padding: 0 56px;
-  max-width: 500px;
-  z-index: 11;
+.mx-land-section-label-line {
+  width: 24px;
+  height: 1px;
+  background: #00e5c7;
+  opacity: 0.5;
 }
 
-.mx-scroll-scene2-headline {
-  font-size: 44px;
-  font-weight: 200;
-  letter-spacing: -1px;
+.mx-land-section-title {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
   color: #fff;
-  margin: 0 0 16px;
+  margin: 0 0 48px;
   line-height: 1.1;
 }
 
-.mx-scroll-scene2-sub {
-  font-size: 15px;
-  color: #8794a8;
-  line-height: 1.6;
-  margin: 0;
+.mx-land-title-accent {
+  color: #00e5c7;
 }
 
-/* ── Scene 3: Above the Earth ── */
-.mx-scroll-scene3 {
-  justify-content: flex-start;
+/* ── Features section ── */
+.mx-land-features {
+  justify-content: center;
 }
 
-.mx-scroll-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.mx-land-features-inner {
+  max-width: 1100px;
+  width: 100%;
   padding: 0 56px;
-  max-width: 420px;
-  z-index: 11;
 }
 
-.mx-scroll-card {
+.mx-land-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.mx-land-feature-card {
   background: linear-gradient(180deg, #0c1322 0%, #0a1020 100%);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 2px solid #00e5c7;
   border-radius: 14px;
-  padding: 22px 20px;
-  backdrop-filter: blur(12px);
+  padding: 24px 22px;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.mx-scroll-card:hover {
+.mx-land-feature-card:hover {
   border-color: rgba(0, 229, 199, 0.2);
   background: linear-gradient(180deg, #0d1525 0%, #0b1120 100%);
 }
 
-.mx-scroll-card-icon {
+.mx-land-feature-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.mx-land-feature-icon {
   width: 40px;
   height: 40px;
   border-radius: 10px;
@@ -2026,32 +2010,42 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
 }
 
-.mx-scroll-card-title {
-  font-size: 15px;
+.mx-land-feature-tag {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #5d6a82;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+
+.mx-land-feature-title {
+  font-size: 16px;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 7px;
+  margin: 0 0 10px;
   letter-spacing: -0.2px;
 }
 
-.mx-scroll-card-desc {
+.mx-land-feature-desc {
   font-size: 12.5px;
   color: #8794a8;
-  line-height: 1.55;
+  line-height: 1.6;
   margin: 0;
 }
 
-/* ── Scene 4: Data Layer ── */
-.mx-scroll-scene4 {
+/* ── Stats section ── */
+.mx-land-stats-section {
   flex-direction: column;
   justify-content: center;
-  align-items: center;
 }
 
-.mx-scroll-grid-bg {
+.mx-land-stats-grid-bg {
   position: absolute;
   inset: 0;
   background-image:
@@ -2063,28 +2057,34 @@ button {
   z-index: -1;
 }
 
-.mx-scroll-scene4-title {
-  font-size: 38px;
-  font-weight: 700;
-  letter-spacing: -1.2px;
-  color: #fff;
-  margin: 0 0 48px;
+.mx-land-stats-inner {
+  max-width: 900px;
+  width: 100%;
+  padding: 0 56px;
   text-align: center;
-  z-index: 11;
 }
 
-.mx-scroll-stats {
+.mx-land-stats-inner .mx-land-section-label,
+.mx-land-stats-inner .mx-land-section-title {
+  text-align: center;
+}
+
+.mx-land-stats-inner .mx-land-section-label {
+  justify-content: center;
+}
+
+.mx-land-stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 48px;
-  z-index: 11;
+  margin-bottom: 48px;
 }
 
-.mx-scroll-stat {
+.mx-land-stat {
   text-align: center;
 }
 
-.mx-scroll-stat-num {
+.mx-land-stat-num {
   font-size: 44px;
   font-weight: 800;
   letter-spacing: -2px;
@@ -2093,15 +2093,18 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-.mx-scroll-stat-live {
-  font-size: 26px;
+.mx-land-stat-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 24px;
   background: linear-gradient(90deg, #00e5c7, #00c9a7);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.mx-scroll-stat-label {
+.mx-land-stat-label {
   font-size: 11.5px;
   color: #8794a8;
   letter-spacing: 0.4px;
@@ -2109,14 +2112,85 @@ button {
   font-weight: 600;
 }
 
-/* ── Scene 5: CTA ── */
-.mx-scroll-scene5 {
+/* Live ticker */
+.mx-land-ticker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.mx-land-ticker-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #ff3d5a;
+  padding: 4px 10px;
+  background: rgba(255, 61, 90, 0.1);
+  border: 1px solid rgba(255, 61, 90, 0.2);
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mx-land-ticker-label::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff3d5a;
+  box-shadow: 0 0 5px #ff3d5a;
+  animation: mx-land-pulse 1.5s ease-in-out infinite;
+}
+
+.mx-land-ticker-wrap {
+  flex: 1;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 0;
+}
+
+.mx-land-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: mx-land-ticker-scroll 40s linear infinite;
+}
+
+@keyframes mx-land-ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.mx-land-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #8794a8;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.mx-land-ticker-flag { font-size: 13px; }
+.mx-land-ticker-name { color: #e6ecf5; font-weight: 500; }
+.mx-land-ticker-time { font-size: 11px; color: #5d6a82; font-variant-numeric: tabular-nums; }
+.mx-land-ticker-impact { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Final CTA ── */
+.mx-land-final {
   flex-direction: column;
   justify-content: center;
   align-items: center;
 }
 
-.mx-scroll-final-glow {
+.mx-land-final-glow {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -2125,24 +2199,24 @@ button {
   height: 600px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(0, 229, 199, 0.1) 0%, transparent 60%);
-  animation: mx-scroll-glow-pulse 4s ease-in-out infinite;
+  animation: mx-land-glow 4s ease-in-out infinite;
   z-index: -1;
 }
 
-@keyframes mx-scroll-glow-pulse {
+@keyframes mx-land-glow {
   0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
   50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.12); }
 }
 
-.mx-scroll-final-content {
+.mx-land-final-content {
   text-align: center;
   max-width: 600px;
   padding: 0 24px;
   z-index: 11;
 }
 
-.mx-scroll-final-headline {
-  font-size: 46px;
+.mx-land-final-headline {
+  font-size: 48px;
   font-weight: 800;
   letter-spacing: -1.5px;
   color: #fff;
@@ -2150,89 +2224,58 @@ button {
   line-height: 1.1;
 }
 
-.mx-scroll-final-sub {
+.mx-land-final-sub {
   font-size: 15px;
   color: #8794a8;
   line-height: 1.6;
   margin: 0 0 36px;
 }
 
-/* ── Globe markers ── */
-.mx-scroll-marker {
-  pointer-events: none;
-  position: relative;
-  width: 14px;
-  height: 14px;
+.mx-land-final-meta {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: #5d6a82;
 }
 
-.mx-scroll-marker-dot {
+.mx-land-final-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ── Globe markers ── */
+.mx-land-marker {
+  pointer-events: none;
+  width: 8px;
+  height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mx-land-marker-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  z-index: 2;
+  box-shadow: 0 0 6px currentColor;
 }
 
-.mx-scroll-marker-pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  animation: mx-scroll-marker-breathe 2.4s ease-in-out infinite;
-}
-
-.mx-scroll-marker-high .mx-scroll-marker-dot { background: #ff3d5a; box-shadow: 0 0 6px #ff3d5a; }
-.mx-scroll-marker-high .mx-scroll-marker-pulse { background: #ff3d5a; opacity: 0.3; }
-.mx-scroll-marker-medium .mx-scroll-marker-dot { background: #ff9f0a; box-shadow: 0 0 6px #ff9f0a; }
-.mx-scroll-marker-medium .mx-scroll-marker-pulse { background: #ff9f0a; opacity: 0.25; }
-.mx-scroll-marker-low .mx-scroll-marker-dot { background: #1fce89; box-shadow: 0 0 6px #1fce89; }
-.mx-scroll-marker-low .mx-scroll-marker-pulse { background: #1fce89; opacity: 0.2; }
-
-@keyframes mx-scroll-marker-breathe {
-  0%, 100% { transform: scale(0.5); opacity: 0.3; }
-  50% { transform: scale(1.5); opacity: 0; }
-}
+.mx-land-marker-high .mx-land-marker-dot { background: #ff3d5a; color: #ff3d5a; }
+.mx-land-marker-medium .mx-land-marker-dot { background: #ff9f0a; color: #ff9f0a; }
+.mx-land-marker-low .mx-land-marker-dot { background: #1fce89; color: #1fce89; }
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .mx-scroll-hero-content {
-    padding: 0 24px;
-  }
-
-  .mx-scroll-headline {
-    font-size: 38px;
-    letter-spacing: -1.5px;
-  }
-
-  .mx-scroll-scene2-text {
-    padding: 0 24px;
-  }
-
-  .mx-scroll-scene2-headline {
-    font-size: 30px;
-  }
-
-  .mx-scroll-cards {
-    padding: 0 24px;
-    max-width: 320px;
-  }
-
-  .mx-scroll-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 32px;
-  }
-
-  .mx-scroll-scene4-title {
-    font-size: 28px;
-  }
-
-  .mx-scroll-final-headline {
-    font-size: 32px;
-  }
-
-  .mx-scroll-brand {
-    top: 16px;
-    left: 16px;
-  }
+  .mx-land-hero-content { padding: 0 24px; }
+  .mx-land-headline { font-size: 38px; letter-spacing: -1.5px; }
+  .mx-land-features-inner { padding: 0 24px; }
+  .mx-land-feature-grid { grid-template-columns: 1fr; }
+  .mx-land-section-title { font-size: 30px; }
+  .mx-land-stats-inner { padding: 0 24px; }
+  .mx-land-stats-row { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+  .mx-land-final-headline { font-size: 34px; }
+  .mx-land-brand { top: 16px; left: 16px; }
 }
