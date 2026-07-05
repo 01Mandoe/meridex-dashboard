@@ -1,10 +1,529 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { EVENTS, IC } from "../data";
+import { Zap, Globe as Globe2, Shield, ArrowRight } from "lucide-react";
+import { EVENTS, IC, allEvents } from "../data";
+import { useParticleSystem } from "../hooks/useParticleSystem";
+import { useInView } from "../hooks/useInView";
+import { NetworkGraph } from "../components/NetworkGraph";
+import { AnimatedCounter } from "../components/AnimatedCounter";
 
-/* ------------------------------------------------------------------ */
-/*  SUN  MATH  (shared with useMeridexGlobe)                          */
-/* ------------------------------------------------------------------ */
+const TEAL = "#00C9A7";
+
+/* ================================================================ */
+/*  OPENING SCENE                                                   */
+/* ================================================================ */
+function OpeningScene({ onDone }) {
+  const canvasRef = useRef(null);
+  const [phase, setPhase] = useState("particles"); // particles -> typing -> done
+
+  useParticleSystem(canvasRef, { count: 80, speed: 0.6, color: "rgba(0, 201, 167, 0.5)" });
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("typing"), 1200);
+    const t2 = setTimeout(() => setPhase("done"), 4000);
+    const t3 = setTimeout(() => onDone(), 5500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [onDone]);
+
+  const [typed, setTyped] = useState("");
+  useEffect(() => {
+    if (phase !== "typing") return;
+    const text = "The edge is in the intelligence.";
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setTyped(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, 45);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  return (
+    <div className={`mx-open ${phase === "done" ? "mx-open--fade" : ""}`}>
+      <canvas ref={canvasRef} className="mx-open-canvas" />
+      <div className={`mx-open-logo ${phase !== "particles" ? "mx-open-logo--in" : ""}`}>
+        Meri<span style={{ color: TEAL }}>dex</span>
+      </div>
+      {phase === "typing" && (
+        <div className="mx-open-typeline">
+          {typed}
+          <span className="mx-open-cursor" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================ */
+/*  HERO SECTION                                                    */
+/* ================================================================ */
+function HeroSection({ onEnter }) {
+  const canvasRef = useRef(null);
+  useParticleSystem(canvasRef, { count: 100, speed: 0.8, color: "rgba(0, 201, 167, 0.45)" });
+
+  return (
+    <section className="mx-land-hero" data-testid="hero-section">
+      <canvas ref={canvasRef} className="mx-land-hero-particles" />
+      <div className="mx-land-hero-inner">
+        <div className="mx-land-hero-left">
+          <h1 className="mx-land-hero-headline">
+            Markets move fast.
+            <br />
+            <span style={{ color: TEAL }}>We move faster.</span>
+          </h1>
+          <p className="mx-land-hero-sub">
+            Real-time global economic intelligence built for serious futures traders.
+          </p>
+          <div className="mx-land-hero-btns">
+            <button className="mx-land-btn mx-land-btn--primary" onClick={onEnter}>
+              Enter Meridex
+              <ArrowRight size={16} />
+            </button>
+            <button className="mx-land-btn mx-land-btn--ghost">
+              See how it works
+            </button>
+          </div>
+        </div>
+        <div className="mx-land-hero-right">
+          <NetworkGraph />
+        </div>
+      </div>
+      <div className="mx-land-scroll-indicator">
+        <span>Scroll</span>
+        <div className="mx-land-scroll-line" />
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================ */
+/*  GLOBE ASSEMBLY SECTION                                          */
+/* ================================================================ */
+function GlobeAssemblySection() {
+  const containerRef = useRef(null);
+  const sectionRef = useRef(null);
+  const [progress, setProgress] = useState(0);
+  const [textRevealed, setTextRevealed] = useState(false);
+  const [, setMarkerCount] = useState(0);
+  const globeRef = useRef(null);
+
+  // Track scroll progress within this section
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return undefined;
+    const onScroll = () => {
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight;
+      // 0 when section top hits viewport top, 1 when section bottom hits viewport bottom
+      const total = rect.height - vh;
+      const scrolled = Math.max(0, -rect.top);
+      const p = Math.min(1, Math.max(0, scrolled / total));
+      setProgress(p);
+
+      // Reveal markers progressively
+      const markers = Object.keys(EVENTS).length;
+      const show = Math.floor(p * markers * 1.5);
+      setMarkerCount(Math.min(markers, show));
+
+      // Globe rotation speed based on scroll velocity
+      if (globeRef.current) {
+        const g = globeRef.current;
+        g.controls().autoRotateSpeed = 0.3 + p * 2;
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Reveal text when section enters viewport
+  const [textRef, textInView] = useInView(0.3);
+  useEffect(() => {
+    if (textInView) setTextRevealed(true);
+  }, [textInView]);
+
+  // Init globe
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return undefined;
+    let disposed = false;
+    let globe = null;
+
+    const init = async () => {
+      const [Globe, THREE] = await Promise.all([
+        import("globe.gl").then((m) => m.default),
+        import("three"),
+      ]);
+      if (disposed) return;
+
+      const sunCoords = getSunCoords();
+      const sun = latLngToWorldVec(sunCoords.lat, sunCoords.lng);
+
+      const [dayTex, nightTex, specTex] = await Promise.all([
+        loadTexture(THREE, TEX.day),
+        loadTexture(THREE, TEX.night),
+        loadTexture(THREE, TEX.spec),
+      ]);
+      if (disposed) return;
+
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          dayMap: { value: dayTex },
+          nightMap: { value: nightTex },
+          specMap: { value: specTex },
+          sunDirection: { value: new THREE.Vector3(sun[0], sun[1], sun[2]) },
+          nightBoost: { value: 2.6 },
+        },
+        vertexShader: dayNightVertex,
+        fragmentShader: dayNightFragment,
+      });
+
+      const markers = Object.entries(EVENTS).map(([code, ev]) => ({
+        lat: ev.lat, lng: ev.lon, code,
+        impact: ev.impact, name: ev.name, flag: ev.flag, count: ev.items.length,
+      }));
+
+      const rings = markers.map((m) => ({
+        lat: m.lat, lng: m.lng, color: IC[m.impact],
+        maxR: m.impact === "high" ? 4.5 : m.impact === "medium" ? 3 : 2,
+        propSpeed: m.impact === "high" ? 2.5 : 1.8,
+        repeatPeriod: m.impact === "high" ? 1400 : 2200,
+      }));
+
+      globe = Globe()(node)
+        .backgroundColor("rgba(0,0,0,0)")
+        .showAtmosphere(true)
+        .atmosphereColor(TEAL)
+        .atmosphereAltitude(0.22)
+        .globeMaterial(material)
+        .ringsData(rings)
+        .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 110).toString(16).padStart(2, "0")}`)
+        .ringMaxRadius("maxR")
+        .ringPropagationSpeed("propSpeed")
+        .ringRepeatPeriod("repeatPeriod")
+        .width(node.clientWidth)
+        .height(node.clientHeight);
+
+      globe.controls().autoRotate = true;
+      globe.controls().autoRotateSpeed = 0.3;
+      globe.controls().enableZoom = false;
+      globe.controls().enablePan = false;
+      globe.pointOfView({ lat: 20, lng: -40, altitude: 2.5 }, 0);
+      globeRef.current = globe;
+
+      // Add markers progressively
+      const allMarkers = markers;
+      globe.htmlElementsData([])
+        .htmlElement((d) => {
+          const el = document.createElement("div");
+          el.className = `mx-land-marker mx-land-marker-${d.impact} mx-land-marker-pop`;
+          el.innerHTML = `<div class="mx-land-marker-dot"></div>`;
+          return el;
+        })
+        .htmlAltitude(0.01);
+
+      // Progressive marker reveal
+      let shown = 0;
+      const revealInterval = setInterval(() => {
+        shown++;
+        if (shown > allMarkers.length) {
+          clearInterval(revealInterval);
+          return;
+        }
+        globe.htmlElementsData(allMarkers.slice(0, shown));
+      }, 200);
+
+      const onResize = () => {
+        if (globeRef.current && node) {
+          globeRef.current.width(node.clientWidth).height(node.clientHeight);
+        }
+      };
+      window.addEventListener("resize", onResize);
+
+      // Cleanup
+      node._cleanup = () => {
+        window.removeEventListener("resize", onResize);
+        clearInterval(revealInterval);
+      };
+    };
+    init();
+
+    return () => {
+      disposed = true;
+      if (node && node._cleanup) node._cleanup();
+    };
+  }, []);
+
+  return (
+    <section className="mx-land-globe-section" ref={sectionRef}>
+      <div className="mx-land-globe-wrap" ref={containerRef} />
+      <div
+        className="mx-land-globe-overlay"
+        style={{ opacity: 1 - progress * 0.3 }}
+      />
+      <div
+        ref={textRef}
+        className={`mx-land-globe-text ${textRevealed ? "mx-land-globe-text--in" : ""}`}
+      >
+        <h2>Every economic event. Every country. One view.</h2>
+        <p>
+          Our interactive globe tracks 195 countries and 500 monthly events so you
+          always know what is moving the markets.
+        </p>
+      </div>
+      <div className="mx-land-progress-bar">
+        <div className="mx-land-progress-fill" style={{ width: `${progress * 100}%` }} />
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================ */
+/*  FEATURE CARDS SECTION                                           */
+/* ================================================================ */
+function FeatureCardsSection() {
+  const cards = [
+    {
+      icon: Zap,
+      title: "Pre-Event NQ/ES Briefings",
+      desc: "Know the exact price levels to watch before every high impact release. Not signals. Intelligence.",
+    },
+    {
+      icon: Globe2,
+      title: "Global Impact Radar",
+      desc: "See which regions are beating expectations and which are missing. The surprise index that hedge funds use, built for retail.",
+    },
+    {
+      icon: Shield,
+      title: "Central Bank Intelligence",
+      desc: "Fed, BOE, ECB, BOJ — their current stance, next meeting, and what it means for your trades. All in one place.",
+    },
+  ];
+
+  return (
+    <section className="mx-land-features">
+      <div className="mx-land-features-inner">
+        {cards.map((card, i) => (
+          <FeatureCard key={i} card={card} index={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FeatureCard({ card, index }) {
+  const [ref, inView] = useInView(0.2);
+  return (
+    <div
+      ref={ref}
+      className={`mx-land-feature-card ${inView ? "mx-land-feature-card--in" : ""}`}
+      style={{ transitionDelay: `${index * 0.15}s` }}
+    >
+      <div className="mx-land-feature-icon">
+        <card.icon size={22} />
+      </div>
+      <h3 className="mx-land-feature-title">{card.title}</h3>
+      <p className="mx-land-feature-desc">{card.desc}</p>
+    </div>
+  );
+}
+
+/* ================================================================ */
+/*  STATS SECTION                                                   */
+/* ================================================================ */
+function StatsSection() {
+  const stats = [
+    { value: 195, suffix: "+", label: "Countries" },
+    { value: 500, suffix: "+", label: "Monthly Events" },
+    { value: 14, suffix: "", label: "Asset Classes" },
+    { value: 0, suffix: "", label: "Real-time Data", isText: true },
+  ];
+
+  return (
+    <section className="mx-land-stats">
+      <div className="mx-land-stats-grid-bg" />
+      <h2 className="mx-land-stats-title">Built different.</h2>
+      <div className="mx-land-stats-row">
+        {stats.map((s, i) => (
+          <div key={i} className="mx-land-stat">
+            <div className="mx-land-stat-num">
+              {s.isText ? (
+                <span className="mx-land-stat-live">Real-time</span>
+              ) : (
+                <AnimatedCounter target={s.value} suffix={s.suffix} />
+              )}
+            </div>
+            <div className="mx-land-stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <ScrollingTicker />
+    </section>
+  );
+}
+
+function ScrollingTicker() {
+  const items = allEvents;
+  return (
+    <div className="mx-land-ticker-wrap">
+      <div className="mx-land-ticker-track">
+        {items.map((ev) => (
+          <div key={`a-${ev.id}`} className="mx-land-ticker-item">
+            <span className="mx-land-ticker-flag">{ev.flag}</span>
+            <span className="mx-land-ticker-name">{ev.name}</span>
+            <span className="mx-land-ticker-time">{ev.time} GMT</span>
+            <span
+              className="mx-land-ticker-impact"
+              style={{ background: IC[ev.impact], boxShadow: `0 0 6px ${IC[ev.impact]}` }}
+            />
+          </div>
+        ))}
+        {items.map((ev) => (
+          <div key={`b-${ev.id}`} className="mx-land-ticker-item">
+            <span className="mx-land-ticker-flag">{ev.flag}</span>
+            <span className="mx-land-ticker-name">{ev.name}</span>
+            <span className="mx-land-ticker-time">{ev.time} GMT</span>
+            <span
+              className="mx-land-ticker-impact"
+              style={{ background: IC[ev.impact], boxShadow: `0 0 6px ${IC[ev.impact]}` }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================ */
+/*  PHONE MOCKUP SECTION                                            */
+/* ================================================================ */
+function PhoneMockupSection({ onEnter }) {
+  const [ref, inView] = useInView(0.2);
+  const bullets = [
+    "A volatility verdict for the day",
+    "Exact windows to avoid trading",
+    "NQ/ES setups for every major release",
+  ];
+
+  return (
+    <section className="mx-land-phone-section" ref={ref}>
+      <div className="mx-land-phone-left">
+        <div className={`mx-land-phone-mockup ${inView ? "mx-land-phone-mockup--in" : ""}`}>
+          <div className="mx-land-phone-screen">
+            <div className="mx-land-phone-header">
+              <div className="mx-land-phone-logo">Meri<span>dex</span></div>
+            </div>
+            <div className="mx-land-phone-body">
+              <div className="mx-land-phone-card">
+                <div className="mx-land-phone-card-title">Today's Verdict</div>
+                <div className="mx-land-phone-card-val">High Volatility</div>
+                <div className="mx-land-phone-card-bar">
+                  <div className="mx-land-phone-card-bar-fill" style={{ width: "78%" }} />
+                </div>
+              </div>
+              <div className="mx-land-phone-card">
+                <div className="mx-land-phone-card-title">Key Events</div>
+                <div className="mx-land-phone-event-row">
+                  <span>🇺🇸</span>
+                  <span>CPI m/m</span>
+                  <span className="mx-land-phone-event-time">08:30</span>
+                </div>
+                <div className="mx-land-phone-event-row">
+                  <span>🇬🇧</span>
+                  <span>GDP m/m</span>
+                  <span className="mx-land-phone-event-time">07:00</span>
+                </div>
+                <div className="mx-land-phone-event-row">
+                  <span>🇨🇳</span>
+                  <span>CPI y/y</span>
+                  <span className="mx-land-phone-event-time">02:00</span>
+                </div>
+              </div>
+              <div className="mx-land-phone-card">
+                <div className="mx-land-phone-card-title">NQ/ES Setup</div>
+                <div className="mx-land-phone-setup-val">Long bias above 18,200</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mx-land-phone-right">
+        <h2 className={`mx-land-phone-headline ${inView ? "mx-land-phone-headline--in" : ""}`}>
+          Your morning briefing.
+          <br />
+          Before the market opens.
+        </h2>
+        <ul className="mx-land-phone-bullets">
+          {bullets.map((b, i) => (
+            <li
+              key={i}
+              className={`mx-land-phone-bullet ${inView ? "mx-land-phone-bullet--in" : ""}`}
+              style={{ transitionDelay: `${0.2 + i * 0.15}s` }}
+            >
+              <span className="mx-land-phone-bullet-dot" />
+              {b}
+            </li>
+          ))}
+        </ul>
+        <div className={`mx-land-phone-cta ${inView ? "mx-land-phone-cta--in" : ""}`}>
+          Join 10,000 traders already using Meridex
+        </div>
+        <button className="mx-land-btn mx-land-btn--primary" onClick={onEnter}>
+          Start Free
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================ */
+/*  FINAL SECTION                                                   */
+/* ================================================================ */
+function FinalSection({ onEnter }) {
+  const [ref, inView] = useInView(0.3);
+  return (
+    <section className="mx-land-final" ref={ref}>
+      <div className="mx-land-final-glow" />
+      <div className={`mx-land-final-content ${inView ? "mx-land-final-content--in" : ""}`}>
+        <h2 className="mx-land-final-headline">Stop reacting. Start preparing.</h2>
+        <p className="mx-land-final-sub">
+          Meridex gives you the intelligence layer that was previously only available
+          to institutional traders.
+        </p>
+        <button className="mx-land-btn mx-land-btn--primary mx-land-btn--lg" onClick={onEnter}>
+          Enter the Platform
+          <ArrowRight size={18} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================ */
+/*  SCROLL PROGRESS INDICATOR                                      */
+/* ================================================================ */
+function ScrollProgress() {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? window.scrollY / max : 0);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return (
+    <div className="mx-land-scroll-progress">
+      <div className="mx-land-scroll-progress-fill" style={{ scaleY: progress }} />
+    </div>
+  );
+}
+
+/* ================================================================ */
+/*  SHARED GLOBE UTILS (duplicated from useMeridexGlobe for independence) */
+/* ================================================================ */
 function getSunCoords() {
   const now = new Date();
   const hours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
@@ -17,26 +536,15 @@ function getSunCoords() {
 function latLngToWorldVec(lat, lng) {
   const phi = ((90 - lat) * Math.PI) / 180;
   const theta = ((lng + 180) * Math.PI) / 180;
-  const x = -Math.sin(phi) * Math.cos(theta);
-  const y = Math.cos(phi);
-  const z = Math.sin(phi) * Math.sin(theta);
-  return [x, y, z];
+  return [-Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta)];
 }
 
-/* ------------------------------------------------------------------ */
-/*  TEXTURES                                                          */
-/* ------------------------------------------------------------------ */
 const TEX = {
-  day:    "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
-  night:  "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
-  clouds: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png",
-  bump:   "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg",
-  spec:   "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
+  day: "https://cdn.jsdelivr.net/gh/turban/webgl-earth@master/images/2_no_clouds_4k.jpg",
+  night: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_lights_2048.png",
+  spec: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg",
 };
 
-/* ------------------------------------------------------------------ */
-/*  SHADERS                                                           */
-/* ------------------------------------------------------------------ */
 const dayNightVertex = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vObjectNormal;
@@ -55,678 +563,74 @@ const dayNightFragment = /* glsl */ `
   uniform float nightBoost;
   varying vec2 vUv;
   varying vec3 vObjectNormal;
-
   void main() {
     vec3 N = normalize(vObjectNormal);
     vec3 L = normalize(sunDirection);
     float cosAngle = dot(N, L);
-
     float latFromEquator = abs(vUv.y - 0.5) * 2.0;
     float polarFactor = 1.0 - smoothstep(0.78, 0.96, latFromEquator);
     vec3 polarTint = vec3(0.02, 0.04, 0.06);
-
     float dayMix = smoothstep(-0.10, 0.25, cosAngle);
-
     vec3 day = texture2D(dayMap, vUv).rgb;
     float waterMask = texture2D(specMap, vUv).r;
     vec3 litDay = day * (0.38 + 0.85 * max(cosAngle, 0.0));
     float spec = pow(max(cosAngle, 0.0), 32.0) * waterMask * 0.55;
     litDay += vec3(spec * 1.1, spec * 1.05, spec * 0.95);
-
     vec3 night = texture2D(nightMap, vUv).rgb;
     night = night * nightBoost;
     night *= vec3(1.22, 1.02, 0.74);
     night += vec3(0.012, 0.018, 0.030);
-
     vec3 color = mix(night, litDay, dayMix);
-
     float terminator = 1.0 - abs(cosAngle);
     float rim = pow(terminator, 4.0) * smoothstep(-0.25, 0.05, cosAngle);
     color += vec3(0.0, 0.45, 0.55) * rim * 0.30;
-
     color = mix(polarTint, color, polarFactor);
-
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
 function loadTexture(THREE, url) {
   return new Promise((resolve, reject) => {
-    new THREE.TextureLoader().load(
-      url,
-      (tex) => {
-        if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = 16;
-        resolve(tex);
-      },
-      undefined,
-      reject,
-    );
+    new THREE.TextureLoader().load(url, (tex) => {
+      if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 16;
+      resolve(tex);
+    }, undefined, reject);
   });
 }
 
-/* ------------------------------------------------------------------ */
-/*  MARKER  BUILDER                                                   */
-/* ------------------------------------------------------------------ */
-function buildMarker(d) {
-  const root = document.createElement("div");
-  root.className = `mx-cine-marker mx-cine-marker-${d.impact}`;
-  root.dataset.code = d.code;
-  root.style.cursor = "pointer";
-  root.style.pointerEvents = "auto";
-
-  const pulse = document.createElement("div");
-  pulse.className = "mx-cine-marker-pulse";
-  root.appendChild(pulse);
-
-  const dot = document.createElement("div");
-  dot.className = "mx-cine-marker-dot";
-  root.appendChild(dot);
-
-  return root;
-}
-
-/* ------------------------------------------------------------------ */
-/*  STARFIELD  (Three.js points)                                      */
-/* ------------------------------------------------------------------ */
-function createStarfield(THREE, count = 6000) {
-  const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
-  const sizes = new Float32Array(count);
-
-  for (let i = 0; i < count; i++) {
-    const r = 800 + Math.random() * 400;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-
-    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi);
-
-    const tint = Math.random();
-    colors[i * 3]     = 0.6 + tint * 0.4;
-    colors[i * 3 + 1] = 0.7 + tint * 0.3;
-    colors[i * 3 + 2] = 1.0;
-
-    sizes[i] = 0.5 + Math.random() * 1.5;
-  }
-
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute("color",    new THREE.BufferAttribute(colors, 3));
-  geo.setAttribute("size",     new THREE.BufferAttribute(sizes, 1));
-
-  const mat = new THREE.PointsMaterial({
-    size: 1.2,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.8,
-    sizeAttenuation: true,
-  });
-
-  return new THREE.Points(geo, mat);
-}
-
-/* ------------------------------------------------------------------ */
-/*  LIVE  CLOCK                                                       */
-/* ------------------------------------------------------------------ */
-function LiveClock() {
-  const [time, setTime] = useState("");
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const h = String(now.getUTCHours()).padStart(2, "0");
-      const m = String(now.getUTCMinutes()).padStart(2, "0");
-      const s = String(now.getUTCSeconds()).padStart(2, "0");
-      setTime(`${h}:${m}:${s} UTC`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
-  return <span className="mx-cine-clock">{time}</span>;
-}
-
-/* ------------------------------------------------------------------ */
-/*  EVENT  COUNTER                                                    */
-/* ------------------------------------------------------------------ */
-function EventCounter() {
-  const count = Object.values(EVENTS).reduce((sum, ev) => sum + ev.items.length, 0);
-  return (
-    <div className="mx-cine-counter">
-      <span className="mx-cine-counter-dot" />
-      <span>{count} events today</span>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  LEGEND                                                            */
-/* ------------------------------------------------------------------ */
-function Legend() {
-  return (
-    <div className="mx-cine-legend">
-      <div className="mx-cine-legend-row">
-        <span className="mx-cine-legend-dot" style={{ background: IC.high, boxShadow: `0 0 8px ${IC.high}` }} />
-        <span>High</span>
-      </div>
-      <div className="mx-cine-legend-row">
-        <span className="mx-cine-legend-dot" style={{ background: IC.medium, boxShadow: `0 0 8px ${IC.medium}` }} />
-        <span>Medium</span>
-      </div>
-      <div className="mx-cine-legend-row">
-        <span className="mx-cine-legend-dot" style={{ background: IC.low, boxShadow: `0 0 8px ${IC.low}` }} />
-        <span>Low</span>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  COUNTRY  PANEL  (glassmorphism slide-in)                          */
-/* ------------------------------------------------------------------ */
-function CountryPanel({ code, onClose }) {
-  const ev = EVENTS[code];
-  if (!ev) return null;
-
-  const highest = ev.items.reduce((max, item) => {
-    const rank = { high: 3, medium: 2, low: 1 };
-    return rank[item.impact] > rank[max.impact] ? item : max;
-  }, ev.items[0]);
-
-  return (
-    <div className="mx-cine-panel-overlay" onClick={onClose}>
-      <div className="mx-cine-panel" onClick={(e) => e.stopPropagation()}>
-        <button className="mx-cine-panel-close" onClick={onClose} aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        <div className="mx-cine-panel-header">
-          <span className="mx-cine-panel-flag">{ev.flag}</span>
-          <div>
-            <h2 className="mx-cine-panel-title">{ev.name}</h2>
-            <p className="mx-cine-panel-sub">{ev.items.length} event{ev.items.length > 1 ? "s" : ""} today</p>
-          </div>
-        </div>
-
-        <div className="mx-cine-panel-events">
-          {ev.items.map((item, i) => (
-            <div key={i} className="mx-cine-panel-event">
-              <div className="mx-cine-panel-event-top">
-                <span className="mx-cine-panel-time">{item.time} GMT</span>
-                <span
-                  className="mx-cine-panel-badge"
-                  style={{
-                    background: IC[item.impact] + "20",
-                    color: IC[item.impact],
-                    border: `1px solid ${IC[item.impact]}40`,
-                  }}
-                >
-                  {item.impact}
-                </span>
-              </div>
-              <div className="mx-cine-panel-event-name">{item.name}</div>
-              <div className="mx-cine-panel-event-brief">{item.desc}</div>
-              {(item.forecast || item.prev) && (
-                <div className="mx-cine-panel-event-nums">
-                  {item.forecast && <span>Forecast: {item.forecast}</span>}
-                  {item.prev && <span>Previous: {item.prev}</span>}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="mx-cine-panel-briefing">
-          <div className="mx-cine-panel-briefing-label">Briefing</div>
-          <p>
-            {highest.name} at {highest.time} GMT is the key event. Markets pricing in{" "}
-            {highest.forecast || "consensus"} vs prior {highest.prev || "N/A"}. Watch{" "}
-            {ev.affects.slice(0, 3).join(", ")} for volatility.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  HOVER  CARD                                                       */
-/* ------------------------------------------------------------------ */
-function HoverCard({ marker }) {
-  if (!marker) return null;
-  const ev = EVENTS[marker.code];
-  if (!ev) return null;
-
-  const highest = ev.items.reduce((max, item) => {
-    const rank = { high: 3, medium: 2, low: 1 };
-    return rank[item.impact] > rank[max.impact] ? item : max;
-  }, ev.items[0]);
-
-  return (
-    <div className="mx-cine-hover-card" style={{ opacity: 1 }}>
-      <div className="mx-cine-hover-flag">{ev.flag}</div>
-      <div className="mx-cine-hover-name">{ev.name}</div>
-      <div className="mx-cine-hover-count">{ev.items.length} event{ev.items.length > 1 ? "s" : ""}</div>
-      <div className="mx-cine-hover-key">
-        <span
-          className="mx-cine-hover-badge"
-          style={{ color: IC[highest.impact] }}
-        >
-          {highest.name}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  MAIN  CINEMATIC  HOME  PAGE                                       */
-/* ------------------------------------------------------------------ */
+/* ================================================================ */
+/*  MAIN HOME PAGE                                                  */
+/* ================================================================ */
 export function HomePage() {
-  const containerRef = useRef(null);
-  const [loaded, setLoaded] = useState(false);
-  const [hoveredCode, setHoveredCode] = useState(null);
-  const [selectedCode, setSelectedCode] = useState(null);
-  const [transitioning, setTransitioning] = useState(false);
+  const [opening, setOpening] = useState(true);
+  const [flashing, setFlashing] = useState(false);
   const navigate = useNavigate();
 
-  const globeInstanceRef = useRef(null);
-  const cameraRef = useRef({ lat: 20, lng: -40, altitude: 2.8 });
-  const mouseRef = useRef({ x: 0, y: 0 });
-  const targetMouseRef = useRef({ x: 0, y: 0 });
-  const isZoomedRef = useRef(false);
-  const transitionRef = useRef({ active: false, t: 0, from: null, to: null, onDone: null });
-
-  /* ── Globe init ─────────────────────────────────────────────── */
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return undefined;
-
-    let disposed = false;
-    let cloudMesh = null;
-    let materialRef = null;
-    let sunInterval = null;
-    let cloudRAF = null;
-    let stars = null;
-    let animFrame = null;
-
-    const init = async () => {
-      const [Globe, THREE] = await Promise.all([
-        import("globe.gl").then((m) => m.default),
-        import("three"),
-      ]);
-      if (disposed) return;
-
-      const [dayTex, nightTex, specTex, bumpTex, cloudsTex] = await Promise.all([
-        loadTexture(THREE, TEX.day),
-        loadTexture(THREE, TEX.night),
-        loadTexture(THREE, TEX.spec),
-        loadTexture(THREE, TEX.bump),
-        loadTexture(THREE, TEX.clouds),
-      ]);
-      if (disposed) return;
-
-      const markers = Object.entries(EVENTS).map(([code, ev]) => ({
-        lat: ev.lat,
-        lng: ev.lon,
-        code,
-        impact: ev.impact,
-        name: ev.name,
-        flag: ev.flag,
-        count: ev.items.length,
-      }));
-
-      const arcs = Object.entries(EVENTS)
-        .filter(([, ev]) => ev.impact !== "low")
-        .map(([code, ev]) => ({
-          id: `${code}-arc`,
-          startLat: ev.lat,
-          startLng: ev.lon,
-          endLat: ev.lat + (Math.random() - 0.5) * 40,
-          endLng: ev.lon + (Math.random() - 0.5) * 40,
-          color: [IC[ev.impact] + "00", IC[ev.impact], IC[ev.impact] + "00"],
-        }));
-
-      const rings = markers.map((m) => ({
-        lat: m.lat,
-        lng: m.lng,
-        color: IC[m.impact],
-        maxR: m.impact === "high" ? 4.5 : m.impact === "medium" ? 3 : 2,
-        propSpeed: m.impact === "high" ? 2.5 : 1.8,
-        repeatPeriod: m.impact === "high" ? 1400 : 2200,
-      }));
-
-      const sunCoords = getSunCoords();
-      const sun = latLngToWorldVec(sunCoords.lat, sunCoords.lng);
-
-      const customMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          dayMap: { value: dayTex },
-          nightMap: { value: nightTex },
-          specMap: { value: specTex },
-          sunDirection: { value: new THREE.Vector3(sun[0], sun[1], sun[2]) },
-          nightBoost: { value: 2.6 },
-        },
-        vertexShader: dayNightVertex,
-        fragmentShader: dayNightFragment,
-      });
-
-      const g = Globe()(node)
-        .backgroundColor("rgba(0,0,0,0)")
-        .showAtmosphere(true)
-        .atmosphereColor("#00E5C7")
-        .atmosphereAltitude(0.22)
-        .htmlElementsData(markers)
-        .htmlElement((d) => buildMarker(d))
-        .htmlAltitude(0.01)
-        .arcsData(arcs)
-        .arcColor("color")
-        .arcAltitude(0.25)
-        .arcStroke(0.4)
-        .arcDashLength(0.4)
-        .arcDashGap(0.6)
-        .arcDashAnimateTime(2200)
-        .ringsData(rings)
-        .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 110).toString(16).padStart(2, "0")}`)
-        .ringMaxRadius("maxR")
-        .ringPropagationSpeed("propSpeed")
-        .ringRepeatPeriod("repeatPeriod")
-        .width(window.innerWidth)
-        .height(window.innerHeight);
-
-      g.globeMaterial(customMaterial);
-      materialRef = customMaterial;
-      globeInstanceRef.current = g;
-
-      const scene = g.scene();
-      const globeRadius = 100;
-
-      /* Clouds */
-      cloudMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(globeRadius * 1.015, 96, 96),
-        new THREE.MeshPhongMaterial({
-          map: cloudsTex,
-          transparent: true,
-          opacity: 0.18,
-          depthWrite: false,
-        }),
-      );
-      scene.add(cloudMesh);
-
-      /* Starfield */
-      stars = createStarfield(THREE);
-      scene.add(stars);
-
-      bumpTex.colorSpace = THREE.NoColorSpace || THREE.LinearSRGBColorSpace;
-
-      g.controls().autoRotate = true;
-      g.controls().autoRotateSpeed = 0.35;
-      g.controls().enableZoom = false;
-      g.controls().enablePan = false;
-      g.pointOfView({ lat: 20, lng: -40, altitude: 2.8 }, 0);
-      cameraRef.current = { lat: 20, lng: -40, altitude: 2.8 };
-
-      /* Cloud drift */
-      const driftClouds = () => {
-        if (cloudMesh) cloudMesh.rotation.y += 0.00012;
-        if (stars) stars.rotation.y += 0.00002;
-        cloudRAF = requestAnimationFrame(driftClouds);
-      };
-      driftClouds();
-
-      /* Sun update */
-      const updateSun = () => {
-        const c = getSunCoords();
-        const v = latLngToWorldVec(c.lat, c.lng);
-        if (materialRef) materialRef.uniforms.sunDirection.value.set(v[0], v[1], v[2]);
-      };
-      sunInterval = setInterval(updateSun, 30000);
-
-      /* Marker click handler via delegation */
-      const handleMarkerClick = (e) => {
-        const marker = e.target.closest(".mx-cine-marker");
-        if (!marker) return;
-        const code = marker.dataset.code;
-        if (code && EVENTS[code]) {
-          handleCountryClick(code);
-        }
-      };
-      node.addEventListener("click", handleMarkerClick);
-
-      /* Marker hover via delegation */
-      const handleMarkerOver = (e) => {
-        const marker = e.target.closest(".mx-cine-marker");
-        if (!marker) return;
-        const code = marker.dataset.code;
-        if (code && EVENTS[code] && !isZoomedRef.current) {
-          setHoveredCode(code);
-          /* Gently rotate to country */
-          const ev = EVENTS[code];
-          g.pointOfView({ lat: ev.lat, lng: ev.lon, altitude: 2.2 }, 1200);
-        }
-      };
-      const handleMarkerOut = (e) => {
-        const marker = e.target.closest(".mx-cine-marker");
-        if (!marker) return;
-        if (!isZoomedRef.current) {
-          setHoveredCode(null);
-          g.pointOfView({ lat: 20, lng: -40, altitude: 2.8 }, 1800);
-        }
-      };
-      node.addEventListener("mouseover", handleMarkerOver);
-      node.addEventListener("mouseout", handleMarkerOut);
-
-      /* Cleanup refs */
-      node._cleanup = () => {
-        node.removeEventListener("click", handleMarkerClick);
-        node.removeEventListener("mouseover", handleMarkerOver);
-        node.removeEventListener("mouseout", handleMarkerOut);
-      };
-
-      setLoaded(true);
-    };
-
-    /* Mouse parallax + smooth camera */
-    const onMouseMove = (e) => {
-      targetMouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
-      targetMouseRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
-    };
-    window.addEventListener("mousemove", onMouseMove);
-
-    const smoothLoop = () => {
-      const g = globeInstanceRef.current;
-      if (g && !isZoomedRef.current && !transitionRef.current.active) {
-        /* Lerp mouse */
-        mouseRef.current.x += (targetMouseRef.current.x - mouseRef.current.x) * 0.04;
-        mouseRef.current.y += (targetMouseRef.current.y - mouseRef.current.y) * 0.04;
-
-        /* Subtle tilt based on mouse position */
-        const base = cameraRef.current;
-        const tiltLat = base.lat - mouseRef.current.y * 8;
-        const tiltLng = base.lng - mouseRef.current.x * 12;
-        g.pointOfView({ lat: tiltLat, lng: tiltLng, altitude: base.altitude }, 0);
-      }
-
-      /* Transition animation */
-      if (transitionRef.current.active) {
-        const tr = transitionRef.current;
-        tr.t += 0.012;
-        if (tr.t >= 1) {
-          tr.t = 1;
-          tr.active = false;
-          if (tr.onDone) tr.onDone();
-        }
-        const ease = 1 - Math.pow(1 - tr.t, 3); /* ease-out-cubic */
-        const lat = tr.from.lat + (tr.to.lat - tr.from.lat) * ease;
-        const lng = tr.from.lng + (tr.to.lng - tr.from.lng) * ease;
-        const alt = tr.from.altitude + (tr.to.altitude - tr.from.altitude) * ease;
-        g.pointOfView({ lat, lng, altitude: alt }, 0);
-        cameraRef.current = { lat, lng, altitude: alt };
-      }
-
-      animFrame = requestAnimationFrame(smoothLoop);
-    };
-    smoothLoop();
-
-    const onResize = () => {
-      if (globeInstanceRef.current) {
-        globeInstanceRef.current.width(window.innerWidth).height(window.innerHeight);
-      }
-    };
-    window.addEventListener("resize", onResize);
-
-    init();
-
-    return () => {
-      disposed = true;
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("resize", onResize);
-      if (node && node._cleanup) node._cleanup();
-      if (sunInterval) clearInterval(sunInterval);
-      if (cloudRAF) cancelAnimationFrame(cloudRAF);
-      if (animFrame) cancelAnimationFrame(animFrame);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /* ── Country click: zoom in ───────────────────────────────────── */
-  const handleCountryClick = useCallback((code) => {
-    if (isZoomedRef.current) return;
-    isZoomedRef.current = true;
-    setHoveredCode(null);
-
-    const ev = EVENTS[code];
-    const g = globeInstanceRef.current;
-    if (!g || !ev) return;
-
-    /* Stop auto-rotate */
-    g.controls().autoRotate = false;
-
-    /* Cinematic zoom transition */
-    const from = { ...cameraRef.current };
-    const to = { lat: ev.lat, lng: ev.lon, altitude: 1.35 };
-    transitionRef.current = { active: true, t: 0, from, to, onDone: () => setSelectedCode(code) };
-  }, []);
-
-  /* ── Close panel: zoom out ────────────────────────────────────── */
-  const handleClosePanel = useCallback(() => {
-    const g = globeInstanceRef.current;
-    if (!g) return;
-
-    setSelectedCode(null);
-
-    const from = { ...cameraRef.current };
-    const to = { lat: 20, lng: -40, altitude: 2.8 };
-    transitionRef.current = {
-      active: true,
-      t: 0,
-      from,
-      to,
-      onDone: () => {
-        isZoomedRef.current = false;
-        g.controls().autoRotate = true;
-      },
-    };
-  }, []);
-
-  /* ── Enter Platform transition ────────────────────────────────── */
   const handleEnter = useCallback(() => {
-    if (transitioning) return;
-    setTransitioning(true);
+    setFlashing(true);
+    setTimeout(() => navigate("/dashboard"), 600);
+  }, [navigate]);
 
-    const g = globeInstanceRef.current;
-    if (!g) {
-      navigate("/dashboard");
-      return;
-    }
-
-    g.controls().autoRotate = false;
-    const from = { ...cameraRef.current };
-    const to = { lat: from.lat, lng: from.lng, altitude: 0.3 };
-    transitionRef.current = {
-      active: true,
-      t: 0,
-      from,
-      to,
-      onDone: () => {
-        navigate("/dashboard");
-      },
-    };
-  }, [navigate, transitioning]);
+  if (opening) {
+    return (
+      <>
+        <OpeningScene onDone={() => setOpening(false)} />
+        {flashing && <div className="mx-land-flash" />}
+      </>
+    );
+  }
 
   return (
-    <div className="mx-cine-root">
-      {/* Globe canvas fills entire screen */}
-      <div ref={containerRef} className="mx-cine-globe" data-testid="hero-globe" />
-
-      {/* Loading overlay */}
-      {!loaded && (
-        <div className="mx-cine-loader">
-          <div className="mx-cine-loader-text">
-            Meri<span>dex</span>
-          </div>
-          <div className="mx-cine-loader-line" />
-        </div>
-      )}
-
-      {/* Vignette overlay */}
-      <div className="mx-cine-vignette" />
-
-      {/* Center logo + tagline */}
-      <div className={`mx-cine-center ${selectedCode ? "mx-cine-center--hidden" : ""}`}>
-        <div className="mx-cine-logo">
-          <div className="mx-cine-logo-mark">M</div>
-          <h1 className="mx-cine-logo-text">
-            Meri<span>dex</span>
-          </h1>
-        </div>
-        <p className="mx-cine-tagline">Know what moves the markets. Before they move.</p>
-        <div className="mx-cine-actions">
-          <button className="mx-cine-btn mx-cine-btn--primary" onClick={handleEnter}>
-            Enter Platform
-          </button>
-          <button
-            className="mx-cine-btn mx-cine-btn--ghost"
-            onClick={() => {
-              const g = globeInstanceRef.current;
-              if (g) g.controls().autoRotateSpeed = g.controls().autoRotateSpeed === 0 ? 0.35 : 0;
-            }}
-          >
-            {globeInstanceRef.current?.controls?.autoRotateSpeed === 0 ? "Resume" : "Explore Globe"}
-          </button>
-        </div>
-      </div>
-
-      {/* Top-right: live event counter */}
-      <div className="mx-cine-tr">
-        <EventCounter />
-      </div>
-
-      {/* Bottom-left: UTC clock */}
-      <div className="mx-cine-bl">
-        <LiveClock />
-      </div>
-
-      {/* Bottom-right: legend */}
-      <div className="mx-cine-br">
-        <Legend />
-      </div>
-
-      {/* Hover card */}
-      {hoveredCode && !selectedCode && (
-        <HoverCard marker={{ code: hoveredCode }} />
-      )}
-
-      {/* Country detail panel */}
-      {selectedCode && (
-        <CountryPanel code={selectedCode} onClose={handleClosePanel} />
-      )}
-
-      {/* Cinematic transition overlay */}
-      {transitioning && <div className="mx-cine-fade-overlay" />}
+    <div className="mx-land-root">
+      {flashing && <div className="mx-land-flash" />}
+      <ScrollProgress />
+      <HeroSection onEnter={handleEnter} />
+      <GlobeAssemblySection />
+      <FeatureCardsSection />
+      <StatsSection />
+      <PhoneMockupSection onEnter={handleEnter} />
+      <FinalSection onEnter={handleEnter} />
     </div>
   );
 }
