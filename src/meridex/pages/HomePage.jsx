@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Landmark, ArrowRight, Activity, Clock, TrendingUp, Shield, ChartBar as BarChart3, Globe as Globe2, ChevronRight } from "lucide-react";
+import { Zap, Landmark, ArrowRight, Activity, Clock, TrendingUp, Shield, ChartBar as BarChart3, Globe as Globe2, ChevronRight, ChevronUp, Star, ArrowUpRight } from "lucide-react";
 import { EVENTS, IC, allEvents } from "../data";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 
@@ -40,20 +40,17 @@ function loadTexture(THREE, url) {
   });
 }
 
-const SECTION_COUNT = 5;
+const SECTION_COUNT = 7;
 
 /* ── Globe transform states per section ── */
-// S1: right, large, full opacity, all markers + arcs
-// S2: right, zoomed to EU/NA, arcs EU-NA
-// S3: center background, all arcs firing rapidly
-// S4: center behind cards, smaller, subtle
-// S5: center, fading out
 const GLOBE_STATES = [
-  { tx: 35, scale: 1.0, opacity: 1.0, lat: 20, lng: -40, altitude: 2.5, arcs: "all" },
-  { tx: 35, scale: 1.15, opacity: 1.0, lat: 30, lng: -30, altitude: 1.8, arcs: "eu_na" },
-  { tx: 12, scale: 1.35, opacity: 0.8, lat: 15, lng: -20, altitude: 2.2, arcs: "all" },
-  { tx: 12, scale: 1.1, opacity: 0.5, lat: 20, lng: -40, altitude: 2.8, arcs: "none" },
-  { tx: 12, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.2, arcs: "none" },
+  { tx: 28, scale: 1.0, opacity: 1.0, lat: 20, lng: -40, altitude: 2.5, arcs: "all" },
+  { tx: 28, scale: 1.1, opacity: 1.0, lat: 30, lng: -30, altitude: 1.8, arcs: "eu_na" },
+  { tx: 15, scale: 1.3, opacity: 0.75, lat: 15, lng: -20, altitude: 2.2, arcs: "all" },
+  { tx: 15, scale: 1.2, opacity: 0.5, lat: 20, lng: -40, altitude: 2.6, arcs: "none" },
+  { tx: 20, scale: 1.15, opacity: 0.6, lat: 25, lng: -30, altitude: 2.4, arcs: "all" },
+  { tx: 20, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.5, arcs: "eu_na" },
+  { tx: 15, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.2, arcs: "none" },
 ];
 
 function buildArcs(mode) {
@@ -63,7 +60,14 @@ function buildArcs(mode) {
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {
         if (entries[i][1].impact !== "low" || entries[j][1].impact !== "low") {
-          arcs.push({ startLat: entries[i][1].lat, startLng: entries[i][1].lon, endLat: entries[j][1].lat, endLng: entries[j][1].lon, color: ["#00C9A700", "#00C9A7", "#00C9A700"] });
+          const opacity = 0.2 + Math.random() * 0.4;
+          arcs.push({
+            startLat: entries[i][1].lat, startLng: entries[i][1].lon,
+            endLat: entries[j][1].lat, endLng: entries[j][1].lon,
+            color: [`rgba(0,201,167,0)`, `rgba(0,201,167,${opacity})`, `rgba(0,201,167,0)`],
+            stroke: 0.3,
+            dashAnimateTime: 1500 + Math.random() * 2500,
+          });
         }
       }
     }
@@ -75,7 +79,14 @@ function buildArcs(mode) {
     });
     for (let i = 0; i < euNa.length; i++) {
       for (let j = i + 1; j < euNa.length; j++) {
-        arcs.push({ startLat: euNa[i][1].lat, startLng: euNa[i][1].lon, endLat: euNa[j][1].lat, endLng: euNa[j][1].lon, color: ["#00C9A700", "#00C9A7", "#00C9A700"] });
+        const opacity = 0.2 + Math.random() * 0.4;
+        arcs.push({
+          startLat: euNa[i][1].lat, startLng: euNa[i][1].lon,
+          endLat: euNa[j][1].lat, endLng: euNa[j][1].lon,
+          color: [`rgba(0,201,167,0)`, `rgba(0,201,167,${opacity})`, `rgba(0,201,167,0)`],
+          stroke: 0.3,
+          dashAnimateTime: 1500 + Math.random() * 2500,
+        });
       }
     }
   }
@@ -130,26 +141,29 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
 
       const g = Globe()(node)
         .backgroundColor("rgba(0,0,0,0)")
-        .showAtmosphere(true).atmosphereColor("#00C9A7").atmosphereAltitude(0.22)
+        .showAtmosphere(true)
+        .atmosphereColor("#00C9A7")
+        .atmosphereAltitude(0.12)
         .globeMaterial(material)
         .htmlElementsData(markers)
         .htmlElement((d) => {
           const el = document.createElement("div");
           el.className = `mx-land-marker mx-land-marker-${d.impact}`;
-          el.innerHTML = `<div class="mx-land-marker-dot"></div>`;
+          el.innerHTML = `<div class="mx-land-marker-pulse"></div><div class="mx-land-marker-dot"></div>`;
           return el;
         })
         .htmlAltitude(0.01)
         .ringsData(rings)
-        .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 110).toString(16).padStart(2, "0")}`)
+        .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 80).toString(16).padStart(2, "0")}`)
         .ringMaxRadius("maxR").ringPropagationSpeed("propSpeed").ringRepeatPeriod("repeatPeriod")
         .arcsData([])
-        .arcColor("color").arcAltitude(0.3).arcStroke(0.5)
-        .arcDashLength(0.4).arcDashGap(0.6).arcDashAnimateTime(2000)
+        .arcColor("color").arcAltitude(0.3)
+        .arcStroke(0.3).arcDashLength(0.4).arcDashGap(0.6)
+        .arcDashAnimateTime(2000)
         .width(node.clientWidth).height(node.clientHeight);
 
       g.controls().autoRotate = true;
-      g.controls().autoRotateSpeed = 0.4;
+      g.controls().autoRotateSpeed = 0.35;
       g.controls().enableZoom = false;
       g.controls().enablePan = false;
       g.pointOfView({ lat: 20, lng: -40, altitude: 2.5 }, 0);
@@ -174,7 +188,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
         pos[i * 3 + 2] = r * Math.cos(p);
       }
       starGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, opacity: 0.6, sizeAttenuation: true }));
+      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.0, transparent: true, opacity: 0.4, sizeAttenuation: true }));
       scene.add(stars);
       starsRef.current = stars;
 
@@ -187,7 +201,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
     return () => { disposed = true; if (node && node._cleanup) node._cleanup(); };
   }, []);
 
-  // rAF loop — reads scroll via getBoundingClientRect, applies CSS transforms
+  // rAF loop
   useEffect(() => {
     let raf;
     let lastArcMode = "";
@@ -219,21 +233,20 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
         wrap.style.opacity = opacity;
 
         if (g && loaded) {
-          const lat = lerp(s0.lat, s1.lat, frac) - my * 4;
-          const lng = lerp(s0.lng, s1.lng, frac) - mx * 6;
+          const lat = lerp(s0.lat, s1.lat, frac) - my * 3;
+          const lng = lerp(s0.lng, s1.lng, frac) - mx * 5;
           const alt = lerp(s0.altitude, s1.altitude, frac);
           g.pointOfView({ lat, lng, altitude: alt }, 0);
-          g.controls().autoRotateSpeed = 0.4 + progress * 0.4;
+          g.controls().autoRotateSpeed = 0.35 + progress * 0.3;
 
           if (cloudRef.current) {
-            cloudRef.current.material.opacity = Math.min(0.35, Math.max(0, (progress - 0.1) * 2));
-            cloudRef.current.rotation.y += 0.0004;
+            cloudRef.current.material.opacity = Math.min(0.25, Math.max(0, (progress - 0.1) * 1.5));
+            cloudRef.current.rotation.y += 0.0003;
           }
           if (starsRef.current) {
-            starsRef.current.material.opacity = Math.max(0, 0.5 - progress * 1.0);
+            starsRef.current.material.opacity = Math.max(0, 0.4 - progress * 0.8);
           }
 
-          // Arc mode
           const sectionIdx = Math.round(sectionF);
           const arcMode = GLOBE_STATES[sectionIdx].arcs;
           if (arcMode !== lastArcMode) {
@@ -241,7 +254,10 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
             if (arcMode === "none") {
               g.arcsData([]);
             } else {
-              g.arcsData(buildArcs(arcMode));
+              const arcs = buildArcs(arcMode);
+              g.arcsData(arcs);
+              g.arcDashAnimateTime((d) => d.dashAnimateTime || 2000);
+              g.arcStroke((d) => d.stroke || 0.3);
             }
           }
         }
@@ -255,12 +271,13 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
   return (
     <div className="mx-land-globe-outer" ref={wrapRef}>
       <div className="mx-land-globe-inner" style={{ opacity: loaded ? 1 : 0, transition: "opacity 1.5s ease" }} />
+      <div className="mx-land-globe-vignette" />
     </div>
   );
 }
 
 /* ── useInView hook ── */
-function useInView(threshold = 0.2) {
+function useInView(threshold = 0.15) {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -274,6 +291,26 @@ function useInView(threshold = 0.2) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return [ref, inView];
+}
+
+/* ── Scroll progress bar ── */
+function ScrollProgress({ scrollContainerRef }) {
+  const barRef = useRef(null);
+  useEffect(() => {
+    let raf;
+    const update = () => {
+      const container = scrollContainerRef.current;
+      if (container && barRef.current) {
+        const scrollable = container.scrollHeight - container.clientHeight;
+        const progress = Math.max(0, Math.min(1, container.scrollTop / scrollable));
+        barRef.current.style.transform = `scaleX(${progress})`;
+      }
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    return () => cancelAnimationFrame(raf);
+  }, [scrollContainerRef]);
+  return <div className="mx-land-scroll-progress" ref={barRef} />;
 }
 
 /* ── Navbar ── */
@@ -345,10 +382,36 @@ function ScrollCue() {
   );
 }
 
+/* ── Back to top ── */
+function BackToTop({ scrollContainerRef }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let raf;
+    const check = () => {
+      const container = scrollContainerRef.current;
+      if (container) setShow(container.scrollTop > 500);
+      raf = requestAnimationFrame(check);
+    };
+    check();
+    return () => cancelAnimationFrame(raf);
+  }, [scrollContainerRef]);
+
+  if (!show) return null;
+  return (
+    <button
+      className="mx-land-back-top"
+      onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+    >
+      <ChevronUp size={18} />
+    </button>
+  );
+}
+
 /* ── Section 1: Hero ── */
 function HeroSection({ onEnter }) {
   return (
-    <section className="mx-land-section" data-section="0">
+    <section className="mx-land-section mx-land-hero" data-section="0">
+      <div className="mx-land-dot-grid" />
       <div className="mx-land-hero-content">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -382,12 +445,14 @@ function HeroSection({ onEnter }) {
               <span className="mx-land-trust-dot" />
               Live data
             </div>
+            <span className="mx-land-trust-sep" />
             <div className="mx-land-trust-item">
-              <Shield size={13} />
+              <Shield size={14} />
               Used by 10K+ traders
             </div>
+            <span className="mx-land-trust-sep" />
             <div className="mx-land-trust-item">
-              <BarChart3 size={13} />
+              <BarChart3 size={14} />
               195 countries tracked
             </div>
           </div>
@@ -400,13 +465,13 @@ function HeroSection({ onEnter }) {
 
 /* ── Section 2: Features (bento grid) ── */
 function FeaturesSection() {
-  const [ref, inView] = useInView(0.15);
+  const [ref, inView] = useInView(0.12);
 
   const cards = [
-    { icon: Zap, border: "#ff3d5a", title: "Pre-Event NQ/ES Briefings", desc: "Exact price levels and directional bias before every high impact release. Not signals. Pure intelligence." },
-    { icon: Globe2, border: "#00C9A7", title: "Global Impact Radar", desc: "See which regions are beating expectations and which are missing. The surprise index built for retail." },
-    { icon: Landmark, border: "#ff9f0a", title: "Central Bank Intelligence", desc: "Fed, BOE, ECB, BOJ — their stance, next meeting date, and exactly what it means for your trades." },
-    { icon: BarChart3, border: "#a78bfa", title: "Event Volatility History", desc: "How did NQ react to the last 12 CPI releases? Average move, direction, maximum range." },
+    { icon: Zap, accent: "#ff3d5a", title: "Pre-Event NQ/ES Briefings", desc: "Exact price levels and directional bias before every high impact release. Not signals. Pure intelligence.", grad: "top-left" },
+    { icon: Globe2, accent: "#00C9A7", title: "Global Impact Radar", desc: "See which regions are beating expectations and which are missing. The surprise index built for retail.", grad: "top-right" },
+    { icon: Landmark, accent: "#ff9f0a", title: "Central Bank Intelligence", desc: "Fed, BOE, ECB, BOJ — their stance, next meeting date, and exactly what it means for your trades.", grad: "bottom-left" },
+    { icon: BarChart3, accent: "#a78bfa", title: "Event Volatility History", desc: "How did NQ react to the last 12 CPI releases? Average move, direction, maximum range.", grad: "bottom-right" },
   ];
 
   return (
@@ -431,14 +496,18 @@ function FeaturesSection() {
           {cards.map((c, i) => (
             <div
               key={i}
-              className={`mx-land-bento-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
-              style={{ transitionDelay: `${200 + i * 120}ms`, borderLeftColor: c.border }}
+              className={`mx-land-bento-card mx-land-bento-grad-${c.grad} mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+              style={{ transitionDelay: `${200 + i * 120}ms`, "--card-accent": c.accent }}
             >
-              <div className="mx-land-bento-icon" style={{ color: c.border, background: `${c.border}15`, borderColor: `${c.border}30` }}>
-                <c.icon size={20} />
+              <div className="mx-land-bento-shine" />
+              <div className="mx-land-bento-icon" style={{ color: c.accent, background: `${c.accent}15`, borderColor: `${c.accent}30` }}>
+                <c.icon size={24} />
               </div>
               <h3 className="mx-land-bento-title">{c.title}</h3>
               <p className="mx-land-bento-desc">{c.desc}</p>
+              <div className="mx-land-bento-arrow">
+                <ArrowUpRight size={18} />
+              </div>
             </div>
           ))}
         </div>
@@ -449,7 +518,7 @@ function FeaturesSection() {
 
 /* ── Section 3: Stats ── */
 function StatsSection() {
-  const [ref, inView] = useInView(0.15);
+  const [ref, inView] = useInView(0.12);
 
   const stats = [
     { icon: Globe2, value: 195, suffix: "+", label: "Countries Tracked" },
@@ -460,36 +529,41 @@ function StatsSection() {
   ];
 
   return (
-    <section className="mx-land-section" data-section="2" ref={ref}>
-      <div className="mx-land-stats-card">
-        <div className="mx-land-stats-grid-bg" />
+    <section className="mx-land-section mx-land-stats-section" data-section="2" ref={ref}>
+      <div className="mx-land-stats-bg" />
+      <div className="mx-land-stats-inner">
         <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             By the numbers
           </div>
-          <h2 className="mx-land-section-title" style={{ textAlign: "center", marginBottom: "12px" }}>Built different.</h2>
-          <p className="mx-land-section-sub" style={{ textAlign: "center", marginBottom: "48px" }}>The numbers behind the platform.</p>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center", marginBottom: "12px" }}>
+            <span className="mx-land-title-white">Built</span> <span className="mx-land-title-accent">different.</span>
+          </h2>
+          <p className="mx-land-section-sub" style={{ textAlign: "center", margin: "0 auto 56px" }}>The numbers behind the platform.</p>
         </div>
         <div className="mx-land-stats-row">
           {stats.map((s, i) => (
-            <div
-              key={i}
-              className={`mx-land-stat-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
-              style={{ transitionDelay: `${200 + i * 100}ms` }}
-            >
-              <div className="mx-land-stat-icon"><s.icon size={18} /></div>
-              <div className="mx-land-stat-num">
-                {s.isText ? (
-                  <span className="mx-land-stat-live">
-                    <span className="mx-land-stat-live-dot" /> Real-time
-                  </span>
-                ) : (
-                  <AnimatedCounter target={s.value} suffix={s.suffix} />
-                )}
+            <React.Fragment key={i}>
+              <div
+                className={`mx-land-stat-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+                style={{ transitionDelay: `${200 + i * 100}ms` }}
+              >
+                <div className="mx-land-stat-icon"><s.icon size={18} /></div>
+                <div className="mx-land-stat-num">
+                  {s.isText ? (
+                    <span className="mx-land-stat-live">
+                      <span className="mx-land-stat-live-dot" /> Real-time
+                    </span>
+                  ) : (
+                    <AnimatedCounter target={s.value} suffix={s.suffix} />
+                  )}
+                </div>
+                <div className="mx-land-stat-underline" />
+                <div className="mx-land-stat-label">{s.label}</div>
               </div>
-              <div className="mx-land-stat-label">{s.label}</div>
-            </div>
+              {i < stats.length - 1 && <div className="mx-land-stat-sep" />}
+            </React.Fragment>
           ))}
         </div>
         <div className="mx-land-ticker-section">
@@ -516,25 +590,75 @@ function StatsSection() {
   );
 }
 
-/* ── Section 4: How It Works ── */
-function HowItWorksSection() {
-  const [ref, inView] = useInView(0.15);
+/* ── Section 4: Social Proof ── */
+function SocialProofSection() {
+  const [ref, inView] = useInView(0.12);
 
-  const steps = [
-    { num: "1", title: "See the globe", desc: "The globe shows you where events are happening. Every country, every impact level, in real time." },
-    { num: "2", title: "Click any country", desc: "Click any country to see specific NQ and ES briefings with exact price levels before the event drops." },
-    { num: "3", title: "Set your alerts", desc: "Set alerts for high impact events so you are never trading blind when the numbers hit." },
+  const testimonials = [
+    { quote: "Meridex replaced three separate tools I was paying for. The pre-event briefings alone are worth it.", name: "James K.", focus: "NQ Futures", initials: "JK" },
+    { quote: "I stopped getting caught off guard on CPI days. The daily verdict card is the first thing I check every morning.", name: "Sarah M.", focus: "ES Day Trading", initials: "SM" },
+    { quote: "The central bank stance tracker saved me from a bad trade on the last BOE meeting. I knew the dovish shift before the tape.", name: "David L.", focus: "Macro Futures", initials: "DL" },
+    { quote: "Historical reaction data for CPI is a game changer. I know the average NQ move before the number even drops.", name: "Alex R.", focus: "Quant Trading", initials: "AR" },
+    { quote: "Finally a platform that speaks the language of futures traders. Not crypto, not forex — NQ and ES.", name: "Mike T.", focus: "Prop Desk", initials: "MT" },
   ];
 
   return (
-    <section className="mx-land-section" data-section="3" ref={ref} id="intelligence">
+    <section className="mx-land-section" data-section="3" ref={ref}>
+      <div className="mx-land-social-inner">
+        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+          <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
+            <span className="mx-land-section-label-line" />
+            Social proof
+          </div>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>
+            Trusted by traders who take<br />their edge <span className="mx-land-title-accent">seriously.</span>
+          </h2>
+        </div>
+        <div className="mx-land-testimonials">
+          {testimonials.map((t, i) => (
+            <div
+              key={i}
+              className={`mx-land-testimonial mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+              style={{ transitionDelay: `${200 + i * 100}ms` }}
+            >
+              <div className="mx-land-stars">
+                {[...Array(5)].map((_, s) => <Star key={s} size={13} fill="#00C9A7" className="mx-land-star" />)}
+              </div>
+              <p className="mx-land-testimonial-quote">"{t.quote}"</p>
+              <div className="mx-land-testimonial-profile">
+                <div className="mx-land-avatar">{t.initials}</div>
+                <div>
+                  <div className="mx-land-testimonial-name">{t.name}</div>
+                  <div className="mx-land-testimonial-focus">{t.focus}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Section 5: How It Works ── */
+function HowItWorksSection() {
+  const [ref, inView] = useInView(0.12);
+
+  const steps = [
+    { num: "01", title: "Monitor", desc: "The globe shows you where events are happening. Every country, every impact level, in real time." },
+    { num: "02", title: "Prepare", desc: "Click any country to see specific NQ and ES briefings with exact price levels before the event drops." },
+    { num: "03", title: "Execute", desc: "Set alerts for high impact events so you are never trading blind when the numbers hit." },
+  ];
+
+  return (
+    <section className="mx-land-section" data-section="4" ref={ref} id="intelligence">
       <div className="mx-land-how-inner">
         <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             How it works
           </div>
-          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>Three steps to an edge.</h2>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>The intelligence loop.</h2>
         </div>
         <div className="mx-land-steps-row">
           {steps.map((s, i) => (
@@ -543,13 +667,19 @@ function HowItWorksSection() {
                 className={`mx-land-step-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
                 style={{ transitionDelay: `${200 + i * 150}ms` }}
               >
+                <div className="mx-land-step-preview" />
                 <div className="mx-land-step-num">{s.num}</div>
                 <h3 className="mx-land-step-title">{s.title}</h3>
                 <p className="mx-land-step-desc">{s.desc}</p>
               </div>
               {i < steps.length - 1 && (
                 <div className={`mx-land-step-arrow mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ transitionDelay: `${300 + i * 150}ms` }}>
-                  <ChevronRight size={20} />
+                  <motion.div
+                    animate={{ x: [0, 6, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <ChevronRight size={20} />
+                  </motion.div>
                 </div>
               )}
             </React.Fragment>
@@ -560,21 +690,87 @@ function HowItWorksSection() {
   );
 }
 
-/* ── Section 5: Final CTA ── */
-function FinalSection({ onEnter }) {
-  const [ref, inView] = useInView(0.2);
+/* ── Section 6: Comparison ── */
+function ComparisonSection() {
+  const [ref, inView] = useInView(0.12);
+
+  const rows = [
+    { before: "Checking three different sites for economic data", after: "Everything in one command centre" },
+    { before: "Getting blindsided by CPI because you missed the release", after: "Pre-event briefings the night before" },
+    { before: "Not knowing if today is a tradeable day", after: "Daily verdict tells you exactly what to expect" },
+    { before: "Guessing how NQ will react", after: "Historical reaction data for every event" },
+    { before: "Missing central bank shifts", after: "Real time stance tracking for all major banks" },
+    { before: "Trading with retail information", after: "Intelligence previously only available to institutions" },
+  ];
 
   return (
-    <section className="mx-land-section" data-section="4" ref={ref} id="pricing">
+    <section className="mx-land-section" data-section="5" ref={ref}>
+      <div className="mx-land-compare-inner">
+        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+          <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
+            <span className="mx-land-section-label-line" />
+            The difference
+          </div>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>
+            Why traders <span className="mx-land-title-accent">switch to Meridex.</span>
+          </h2>
+        </div>
+        <div className={`mx-land-compare-table mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ transitionDelay: "200ms" }}>
+          <div className="mx-land-compare-header">
+            <div className="mx-land-compare-col mx-land-compare-before">
+              <div className="mx-land-compare-badge mx-land-compare-badge--red">Before Meridex</div>
+            </div>
+            <div className="mx-land-compare-col mx-land-compare-after">
+              <div className="mx-land-compare-badge mx-land-compare-badge--teal">With Meridex</div>
+            </div>
+          </div>
+          {rows.map((r, i) => (
+            <div key={i} className="mx-land-compare-row">
+              <div className="mx-land-compare-cell mx-land-compare-cell--before">
+                <span className="mx-land-compare-x">✕</span>
+                {r.before}
+              </div>
+              <div className="mx-land-compare-cell mx-land-compare-cell--after">
+                <span className="mx-land-compare-check">✓</span>
+                {r.after}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Section 7: Final CTA ── */
+function FinalSection({ onEnter }) {
+  const [ref, inView] = useInView(0.15);
+  const [email, setEmail] = useState("");
+
+  return (
+    <section className="mx-land-section" data-section="6" ref={ref} id="pricing">
       <div className="mx-land-final-glow" />
       <div className={`mx-land-final-content mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}>
+        <div className="mx-land-final-line" />
         <h2 className="mx-land-final-headline">Stop reacting.<br />Start preparing.</h2>
         <p className="mx-land-final-sub">
           Join 10,000 traders who see what is coming before it arrives.
           Meridex gives you the intelligence layer that was previously only
           available to institutional desks.
         </p>
-        <button className="mx-land-btn mx-land-btn--primary mx-land-btn--xl" onClick={onEnter}>
+        <div className="mx-land-waitlist">
+          <input
+            type="email"
+            className="mx-land-waitlist-input"
+            placeholder="Join 10,000+ traders"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <button className="mx-land-btn mx-land-btn--primary" onClick={onEnter}>
+            Submit <ArrowRight size={15} />
+          </button>
+        </div>
+        <button className="mx-land-btn mx-land-btn--xl mx-land-btn--pulse" onClick={onEnter}>
           Enter Meridex <ArrowRight size={18} />
         </button>
         <div className="mx-land-final-meta">
@@ -614,15 +810,19 @@ export function HomePage() {
       <div className="mx-land-ambient" />
       <PersistentGlobe scrollContainerRef={scrollContainerRef} mouseRef={mouseRef} />
       <div className="mx-land-vignette" />
+      <ScrollProgress scrollContainerRef={scrollContainerRef} />
       <Navbar />
       <Ticker />
       <div className="mx-land-scroll" ref={scrollContainerRef}>
         <HeroSection onEnter={handleEnter} />
         <FeaturesSection />
         <StatsSection />
+        <SocialProofSection />
         <HowItWorksSection />
+        <ComparisonSection />
         <FinalSection onEnter={handleEnter} />
       </div>
+      <BackToTop scrollContainerRef={scrollContainerRef} />
     </div>
   );
 }
