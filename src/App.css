@@ -1674,7 +1674,8 @@ button {
   color: #e6ecf5;
   position: relative;
   width: 100%;
-  scroll-behavior: smooth;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* Ambient glows matching dashboard */
@@ -1688,15 +1689,36 @@ button {
     radial-gradient(900px 600px at 100% 100%, rgba(167, 139, 250, 0.04), transparent 60%);
 }
 
-/* Fixed globe */
-.mx-land-globe-fixed {
+/* Scroll container — native scroll with scroll-snap */
+.mx-land-scroll {
+  position: relative;
+  z-index: 10;
+  height: 100vh;
+  overflow-y: scroll;
+  scroll-snap-type: y proximity;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mx-land-scroll::-webkit-scrollbar { width: 0; display: none; }
+.mx-land-scroll { scrollbar-width: none; }
+
+/* ── Globe — fixed, transforms driven by rAF ── */
+.mx-land-globe-outer {
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
   z-index: 1;
   pointer-events: none;
+  will-change: transform, opacity;
+  /* transform set via JS */
+}
+
+.mx-land-globe-inner {
+  width: 100%;
+  height: 100%;
 }
 
 /* Vignette */
@@ -1742,18 +1764,6 @@ button {
 
 .mx-land-brand-text span { color: #00e5c7; }
 
-/* Progress bar */
-.mx-land-progress {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  z-index: 100;
-  transform-origin: top;
-  background: linear-gradient(180deg, #00e5c7, rgba(0, 229, 199, 0.1));
-}
-
 /* Fade to black transition */
 .mx-land-fade-black {
   position: fixed;
@@ -1772,18 +1782,29 @@ button {
 /* ── Sections ── */
 .mx-land-section {
   position: relative;
-  z-index: 10;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+/* ── Intersection Observer animation utility ── */
+.mx-land-anim {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.mx-land-anim--in {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* ── Hero ── */
-.mx-land-hero {
-  justify-content: flex-start;
-}
-
 .mx-land-hero-content {
   padding: 0 56px;
   max-width: 600px;
@@ -1964,10 +1985,6 @@ button {
 }
 
 /* ── Features section ── */
-.mx-land-features {
-  justify-content: center;
-}
-
 .mx-land-features-inner {
   max-width: 1100px;
   width: 100%;
@@ -2040,11 +2057,6 @@ button {
 }
 
 /* ── Stats section ── */
-.mx-land-stats-section {
-  flex-direction: column;
-  justify-content: center;
-}
-
 .mx-land-stats-grid-bg {
   position: absolute;
   inset: 0;
@@ -2062,15 +2074,7 @@ button {
   width: 100%;
   padding: 0 56px;
   text-align: center;
-}
-
-.mx-land-stats-inner .mx-land-section-label,
-.mx-land-stats-inner .mx-land-section-title {
-  text-align: center;
-}
-
-.mx-land-stats-inner .mx-land-section-label {
-  justify-content: center;
+  margin: 0 auto;
 }
 
 .mx-land-stats-row {
@@ -2184,12 +2188,6 @@ button {
 .mx-land-ticker-impact { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── Final CTA ── */
-.mx-land-final {
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
 .mx-land-final-glow {
   position: absolute;
   top: 50%;
@@ -2213,6 +2211,7 @@ button {
   max-width: 600px;
   padding: 0 24px;
   z-index: 11;
+  margin: 0 auto;
 }
 
 .mx-land-final-headline {
