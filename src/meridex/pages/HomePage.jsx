@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Zap, Landmark, ArrowRight, Activity, Clock, TrendingUp, Shield, ChartBar as BarChart3, Globe as Globe2, ChevronRight, ChevronUp, Star, ArrowUpRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Zap, Landmark, ArrowRight, Activity, Clock, TrendingUp, Shield, ChartBar as BarChart3, Globe as Globe2, ChevronRight, ChevronUp, Star, ArrowUpRight, Calendar, Bell, Eye, Users, TriangleAlert as AlertTriangle, Send, MessageCircle, GitBranch } from "lucide-react";
 import { EVENTS, IC, allEvents } from "../data";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 
@@ -40,16 +40,20 @@ function loadTexture(THREE, url) {
   });
 }
 
-const SECTION_COUNT = 7;
+const SECTION_COUNT = 11;
 
 /* ── Globe transform states per section ── */
 const GLOBE_STATES = [
   { tx: 28, scale: 1.0, opacity: 1.0, lat: 20, lng: -40, altitude: 2.5, arcs: "all" },
   { tx: 28, scale: 1.1, opacity: 1.0, lat: 30, lng: -30, altitude: 1.8, arcs: "eu_na" },
-  { tx: 15, scale: 1.3, opacity: 0.75, lat: 15, lng: -20, altitude: 2.2, arcs: "all" },
+  { tx: 20, scale: 1.2, opacity: 0.7, lat: 15, lng: -20, altitude: 2.2, arcs: "all" },
+  { tx: 15, scale: 1.3, opacity: 0.6, lat: 20, lng: -40, altitude: 2.4, arcs: "all" },
   { tx: 15, scale: 1.2, opacity: 0.5, lat: 20, lng: -40, altitude: 2.6, arcs: "none" },
   { tx: 20, scale: 1.15, opacity: 0.6, lat: 25, lng: -30, altitude: 2.4, arcs: "all" },
   { tx: 20, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.5, arcs: "eu_na" },
+  { tx: 20, scale: 1.2, opacity: 0.5, lat: 25, lng: -30, altitude: 2.4, arcs: "all" },
+  { tx: 20, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.5, arcs: "eu_na" },
+  { tx: 20, scale: 1.3, opacity: 0.4, lat: 20, lng: -40, altitude: 2.5, arcs: "none" },
   { tx: 15, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.2, arcs: "none" },
 ];
 
@@ -94,7 +98,7 @@ function buildArcs(mode) {
 }
 
 /* ── Persistent Globe ── */
-function PersistentGlobe({ scrollContainerRef, mouseRef }) {
+function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
   const wrapRef = useRef(null);
   const globeRef = useRef(null);
   const cloudRef = useRef(null);
@@ -130,7 +134,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
       });
 
       const markers = Object.entries(EVENTS).map(([code, ev]) => ({
-        lat: ev.lat, lng: ev.lon, impact: ev.impact, name: ev.name,
+        lat: ev.lat, lng: ev.lon, impact: ev.impact, name: ev.name, code, flag: ev.flag,
       }));
       const rings = markers.map((m) => ({
         lat: m.lat, lng: m.lng, color: IC[m.impact],
@@ -150,6 +154,12 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
           const el = document.createElement("div");
           el.className = `mx-land-marker mx-land-marker-${d.impact}`;
           el.innerHTML = `<div class="mx-land-marker-pulse"></div><div class="mx-land-marker-dot"></div>`;
+          el.style.pointerEvents = "auto";
+          el.style.cursor = "pointer";
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (onMarkerClick) onMarkerClick(d);
+          });
           return el;
         })
         .htmlAltitude(0.01)
@@ -199,7 +209,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
     };
     init();
     return () => { disposed = true; if (node && node._cleanup) node._cleanup(); };
-  }, []);
+  }, [onMarkerClick]);
 
   // rAF loop
   useEffect(() => {
@@ -270,6 +280,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef }) {
 
   return (
     <div className="mx-land-globe-outer" ref={wrapRef}>
+      {!loaded && <div className="mx-land-globe-skeleton" />}
       <div className="mx-land-globe-inner" style={{ opacity: loaded ? 1 : 0, transition: "opacity 1.5s ease" }} />
       <div className="mx-land-globe-vignette" />
     </div>
@@ -313,6 +324,26 @@ function ScrollProgress({ scrollContainerRef }) {
   return <div className="mx-land-scroll-progress" ref={barRef} />;
 }
 
+/* ── Countdown hook ── */
+function useCountdown(targetHours) {
+  const [time, setTime] = useState({ h: 0, m: 0, s: 0 });
+  useEffect(() => {
+    const target = Date.now() + targetHours * 3600000;
+    const tick = () => {
+      const diff = Math.max(0, target - Date.now());
+      setTime({
+        h: Math.floor(diff / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetHours]);
+  return time;
+}
+
 /* ── Navbar ── */
 function Navbar() {
   return (
@@ -336,7 +367,7 @@ function Navbar() {
       </div>
       <div className="mx-land-nav-actions">
         <button className="mx-land-btn mx-land-btn--ghost mx-land-btn--sm">Login</button>
-        <button className="mx-land-btn mx-land-btn--primary mx-land-btn--sm">Get Started</button>
+        <button className="mx-land-btn mx-land-btn--primary mx-land-btn--sm mx-land-btn--gradient-border">Get Started</button>
       </div>
     </nav>
   );
@@ -362,6 +393,23 @@ function Ticker() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Countdown Banner ── */
+function CountdownBanner() {
+  const t = useCountdown(3.23);
+  return (
+    <div className="mx-land-countdown-banner">
+      <div className="mx-land-countdown-left">
+        <AlertTriangle size={13} className="mx-land-countdown-icon" />
+        <span>Next high impact event: <strong>US CPI m/m</strong> in</span>
+        <span className="mx-land-countdown-timer">
+          {String(t.h).padStart(2, "0")}:{String(t.m).padStart(2, "0")}:{String(t.s).padStart(2, "0")}
+        </span>
+      </div>
+      <div className="mx-land-countdown-pill">Today: 5 High Impact Events</div>
     </div>
   );
 }
@@ -407,8 +455,81 @@ function BackToTop({ scrollContainerRef }) {
   );
 }
 
+/* ── Trader Activity Feed (hero only) ── */
+function ActivityFeed() {
+  const activities = [
+    { icon: Eye, text: "A trader in London just checked US CPI briefing" },
+    { icon: Users, text: "847 traders are viewing the dashboard right now" },
+    { icon: Bell, text: "New high impact alert: Fed Chair Powell in 2h 14m" },
+  ];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx((p) => (p + 1) % activities.length), 4000);
+    return () => clearInterval(id);
+  }, [activities.length]);
+
+  return (
+    <div className="mx-land-activity-feed">
+      <div className="mx-land-activity-header">
+        <span className="mx-land-activity-dot" />
+        Live activity
+      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={idx}
+          className="mx-land-activity-item"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.4 }}
+        >
+          {(() => {
+            const Icon = activities[idx].icon;
+            return <Icon size={13} className="mx-land-activity-icon" />;
+          })()}
+          {activities[idx].text}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ── Globe click popup ── */
+function GlobePopup({ marker, onClose, onEnter }) {
+  if (!marker) return null;
+  const eventCount = Object.values(EVENTS).filter((e) => e.name === marker.name).length || 1;
+  return (
+    <motion.div
+      className="mx-land-globe-popup"
+      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9, y: 10 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <div className="mx-land-globe-popup-header">
+        <span className="mx-land-globe-popup-flag">{marker.flag}</span>
+        <span className="mx-land-globe-popup-name">{marker.name}</span>
+        <button className="mx-land-globe-popup-close" onClick={onClose}>✕</button>
+      </div>
+      <div className="mx-land-globe-popup-body">
+        <div className="mx-land-globe-popup-stat">
+          <span className="mx-land-globe-popup-stat-num">{eventCount}</span>
+          <span className="mx-land-globe-popup-stat-label">Events today</span>
+        </div>
+        <div className="mx-land-globe-popup-event">
+          <span className="mx-land-globe-popup-event-impact" style={{ background: IC[marker.impact] }} />
+          <span>Highest impact: {marker.name} — 13:30 GMT</span>
+        </div>
+      </div>
+      <button className="mx-land-globe-popup-link" onClick={onEnter}>
+        See full briefing <ArrowRight size={12} />
+      </button>
+    </motion.div>
+  );
+}
+
 /* ── Section 1: Hero ── */
-function HeroSection({ onEnter }) {
+function HeroSection({ onEnter, onMarkerClick, popupMarker, onPopupClose }) {
   return (
     <section className="mx-land-section mx-land-hero" data-section="0">
       <div className="mx-land-dot-grid" />
@@ -432,9 +553,10 @@ function HeroSection({ onEnter }) {
             Economic events, central bank intelligence, and pre-event price briefings —
             all in one command centre.
           </p>
+          <p className="mx-land-hint">Try it — click any marker on the globe.</p>
           <div className="mx-land-btns">
-            <button className="mx-land-btn mx-land-btn--primary" onClick={onEnter}>
-              Enter Meridex <ArrowRight size={15} />
+            <button className="mx-land-btn mx-land-btn--primary mx-land-btn--arrow" onClick={onEnter}>
+              Enter Meridex <ArrowRight size={15} className="mx-land-btn-arrow-icon" />
             </button>
             <button className="mx-land-btn mx-land-btn--ghost">
               See how it works
@@ -458,6 +580,12 @@ function HeroSection({ onEnter }) {
           </div>
         </motion.div>
       </div>
+      <ActivityFeed />
+      <AnimatePresence>
+        {popupMarker && (
+          <GlobePopup marker={popupMarker} onClose={onPopupClose} onEnter={onEnter} />
+        )}
+      </AnimatePresence>
       <ScrollCue />
     </section>
   );
@@ -477,7 +605,7 @@ function FeaturesSection() {
   return (
     <section className="mx-land-section" data-section="1" ref={ref} id="features">
       <div className="mx-land-features-inner">
-        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}>
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}>
           <div className="mx-land-section-label">
             <span className="mx-land-section-label-line" />
             What we do
@@ -496,7 +624,7 @@ function FeaturesSection() {
           {cards.map((c, i) => (
             <div
               key={i}
-              className={`mx-land-bento-card mx-land-bento-grad-${c.grad} mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+              className={`mx-land-bento-card mx-land-bento-grad-${c.grad} mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}
               style={{ transitionDelay: `${200 + i * 120}ms`, "--card-accent": c.accent }}
             >
               <div className="mx-land-bento-shine" />
@@ -516,7 +644,122 @@ function FeaturesSection() {
   );
 }
 
-/* ── Section 3: Stats ── */
+/* ── Section 3: Live Intelligence Preview ── */
+function LivePreviewSection() {
+  const [ref, inView] = useInView(0.12);
+  const [tab, setTab] = useState("brief");
+  const t = useCountdown(3.23);
+
+  const calendarRows = allEvents.slice(0, 5);
+  const banks = [
+    { name: "Federal Reserve", short: "Fed", rate: "5.50%", stance: "Hawkish", color: "#ff3d5a" },
+    { name: "Bank of England", short: "BOE", rate: "5.25%", stance: "Holding", color: "#ff9f0a" },
+    { name: "European Central Bank", short: "ECB", rate: "4.50%", stance: "Dovish", color: "#00C9A7" },
+    { name: "Bank of Japan", short: "BOJ", rate: "0.10%", stance: "Accommodative", color: "#00C9A7" },
+  ];
+
+  return (
+    <section className="mx-land-section" data-section="2" ref={ref} id="calendar">
+      <div className="mx-land-preview-inner">
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+          <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
+            <span className="mx-land-section-label-line" />
+            Live preview
+          </div>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>
+            See what traders saw <span className="mx-land-title-accent">this morning.</span>
+          </h2>
+          <p className="mx-land-section-sub" style={{ textAlign: "center", margin: "0 auto 40px" }}>
+            This is a live preview of today's Meridex intelligence brief.
+          </p>
+        </div>
+        <div className={`mx-land-preview-card mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ transitionDelay: "200ms" }}>
+          <div className="mx-land-preview-tabs">
+            <button className={`mx-land-preview-tab ${tab === "brief" ? "active" : ""}`} onClick={() => setTab("brief")}>Daily Brief</button>
+            <button className={`mx-land-preview-tab ${tab === "calendar" ? "active" : ""}`} onClick={() => setTab("calendar")}>Event Calendar</button>
+            <button className={`mx-land-preview-tab ${tab === "banks" ? "active" : ""}`} onClick={() => setTab("banks")}>Central Banks</button>
+          </div>
+          <div className="mx-land-preview-body">
+            <AnimatePresence mode="wait">
+              {tab === "brief" && (
+                <motion.div
+                  key="brief"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mx-land-preview-brief"
+                >
+                  <div className="mx-land-brief-top">
+                    <div>
+                      <div className="mx-land-brief-date">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
+                      <div className="mx-land-brief-verdict">
+                        <span className="mx-land-brief-badge">High Volatility Day</span>
+                      </div>
+                    </div>
+                    <div className="mx-land-brief-countdown">
+                      <span className="mx-land-brief-countdown-label">Next event in</span>
+                      <span className="mx-land-brief-countdown-timer">
+                        {String(t.h).padStart(2, "0")}:{String(t.m).padStart(2, "0")}:{String(t.s).padStart(2, "0")}
+                      </span>
+                    </div>
+                  </div>
+                  <ul className="mx-land-brief-list">
+                    <li><span className="mx-land-brief-bullet" />US CPI m/m expected at 0.3% vs 0.4% prior — downside surprise likely bullish for NQ</li>
+                    <li><span className="mx-land-brief-bullet" />Fed Chair Powell speaking at 18:00 GMT — watch for hawkish/dovish language shifts on inflation</li>
+                    <li><span className="mx-land-brief-bullet" />ES key levels: support 5,410 / resistance 5,448 — range break determines direction</li>
+                  </ul>
+                </motion.div>
+              )}
+              {tab === "calendar" && (
+                <motion.div
+                  key="calendar"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mx-land-preview-calendar"
+                >
+                  <div className="mx-land-cal-header">
+                    <span>Time</span><span>Event</span><span>Impact</span><span>Forecast</span><span>Previous</span>
+                  </div>
+                  {calendarRows.map((ev, i) => (
+                    <div key={i} className="mx-land-cal-row">
+                      <span className="mx-land-cal-time">{ev.time}</span>
+                      <span className="mx-land-cal-name"><span className="mx-land-cal-flag">{ev.flag}</span> {ev.name}</span>
+                      <span className="mx-land-cal-impact" style={{ background: IC[ev.impact], boxShadow: `0 0 4px ${IC[ev.impact]}` }} />
+                      <span className="mx-land-cal-forecast">0.3%</span>
+                      <span className="mx-land-cal-prev">0.4%</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+              {tab === "banks" && (
+                <motion.div
+                  key="banks"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mx-land-preview-banks"
+                >
+                  {banks.map((b, i) => (
+                    <div key={i} className="mx-land-bank-row">
+                      <div className="mx-land-bank-name">
+                        <span className="mx-land-bank-short">{b.short}</span>
+                        {b.name}
+                      </div>
+                      <div className="mx-land-bank-rate">{b.rate}</div>
+                      <div className="mx-land-bank-stance" style={{ color: b.color, borderColor: `${b.color}40`, background: `${b.color}10` }}>
+                        {b.stance}
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Section 4: Stats ── */
 function StatsSection() {
   const [ref, inView] = useInView(0.12);
 
@@ -529,10 +772,10 @@ function StatsSection() {
   ];
 
   return (
-    <section className="mx-land-section mx-land-stats-section" data-section="2" ref={ref}>
+    <section className="mx-land-section mx-land-stats-section" data-section="3" ref={ref}>
       <div className="mx-land-stats-bg" />
       <div className="mx-land-stats-inner">
-        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             By the numbers
@@ -546,7 +789,7 @@ function StatsSection() {
           {stats.map((s, i) => (
             <React.Fragment key={i}>
               <div
-                className={`mx-land-stat-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+                className={`mx-land-stat-card mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}
                 style={{ transitionDelay: `${200 + i * 100}ms` }}
               >
                 <div className="mx-land-stat-icon"><s.icon size={18} /></div>
@@ -566,46 +809,27 @@ function StatsSection() {
             </React.Fragment>
           ))}
         </div>
-        <div className="mx-land-ticker-section">
-          <div className="mx-land-ticker-bar mx-land-ticker-bar--lg">
-            <div className="mx-land-ticker-label">LIVE</div>
-            <div className="mx-land-ticker-wrap">
-              <div className="mx-land-ticker-fade-l" />
-              <div className="mx-land-ticker-fade-r" />
-              <div className="mx-land-ticker-track">
-                {allEvents.concat(allEvents).map((ev, i) => (
-                  <div key={i} className="mx-land-ticker-item">
-                    <span className="mx-land-ticker-flag">{ev.flag}</span>
-                    <span className="mx-land-ticker-name">{ev.name}</span>
-                    <span className="mx-land-ticker-time">{ev.time}</span>
-                    <span className="mx-land-ticker-impact" style={{ background: IC[ev.impact], boxShadow: `0 0 5px ${IC[ev.impact]}` }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
 }
 
-/* ── Section 4: Social Proof ── */
+/* ── Section 5: Social Proof ── */
 function SocialProofSection() {
   const [ref, inView] = useInView(0.12);
 
   const testimonials = [
     { quote: "Meridex replaced three separate tools I was paying for. The pre-event briefings alone are worth it.", name: "James K.", focus: "NQ Futures", initials: "JK" },
     { quote: "I stopped getting caught off guard on CPI days. The daily verdict card is the first thing I check every morning.", name: "Sarah M.", focus: "ES Day Trading", initials: "SM" },
-    { quote: "The central bank stance tracker saved me from a bad trade on the last BOE meeting. I knew the dovish shift before the tape.", name: "David L.", focus: "Macro Futures", initials: "DL" },
-    { quote: "Historical reaction data for CPI is a game changer. I know the average NQ move before the number even drops.", name: "Alex R.", focus: "Quant Trading", initials: "AR" },
+    { quote: "The central bank stance tracker saved me from a bad trade on the last BOE meeting.", name: "David L.", focus: "Macro Futures", initials: "DL" },
+    { quote: "Historical reaction data for CPI is a game changer. I know the average NQ move before the number drops.", name: "Alex R.", focus: "Quant Trading", initials: "AR" },
     { quote: "Finally a platform that speaks the language of futures traders. Not crypto, not forex — NQ and ES.", name: "Mike T.", focus: "Prop Desk", initials: "MT" },
   ];
 
   return (
-    <section className="mx-land-section" data-section="3" ref={ref}>
+    <section className="mx-land-section" data-section="4" ref={ref}>
       <div className="mx-land-social-inner">
-        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             Social proof
@@ -618,7 +842,7 @@ function SocialProofSection() {
           {testimonials.map((t, i) => (
             <div
               key={i}
-              className={`mx-land-testimonial mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+              className={`mx-land-testimonial mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}
               style={{ transitionDelay: `${200 + i * 100}ms` }}
             >
               <div className="mx-land-stars">
@@ -640,7 +864,84 @@ function SocialProofSection() {
   );
 }
 
-/* ── Section 5: How It Works ── */
+/* ── Section 6: Market Pulse Strip ── */
+function MarketPulseSection() {
+  const [ref, inView] = useInView(0.12);
+
+  const [assets, setAssets] = useState([
+    { name: "NQ", price: "18,245.50", change: "+0.84%", up: true, spark: [20, 18, 22, 19, 24, 21, 26, 23, 28] },
+    { name: "ES", price: "5,432.25", change: "+0.42%", up: true, spark: [20, 22, 19, 24, 21, 25, 23, 27, 25] },
+    { name: "Gold", price: "2,418.30", change: "-0.31%", up: false, spark: [28, 26, 27, 24, 25, 22, 23, 20, 21] },
+    { name: "EUR/USD", price: "1.0842", change: "+0.12%", up: true, spark: [20, 21, 19, 22, 20, 23, 21, 24, 22] },
+    { name: "GBP/USD", price: "1.2715", change: "-0.22%", up: false, spark: [24, 22, 25, 21, 23, 19, 21, 18, 20] },
+    { name: "Oil", price: "82.45", change: "+1.05%", up: true, spark: [18, 20, 19, 23, 22, 26, 25, 29, 28] },
+  ]);
+  const [flashIdx, setFlashIdx] = useState(-1);
+  const [flashUp, setFlashUp] = useState(true);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const idx = Math.floor(Math.random() * assets.length);
+      const up = Math.random() > 0.4;
+      setAssets((prev) => prev.map((a, i) => {
+        if (i !== idx) return a;
+        const base = parseFloat(a.price.replace(/,/g, ""));
+        const delta = (Math.random() * 0.005 + 0.001) * (up ? 1 : -1);
+        const newPrice = (base * (1 + delta)).toFixed(a.name.includes("/") ? 4 : 2);
+        return {
+          ...a,
+          price: newPrice.replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+          change: `${up ? "+" : "-"}${(Math.abs(delta) * 100).toFixed(2)}%`,
+          up,
+        };
+      }));
+      setFlashIdx(idx);
+      setFlashUp(up);
+      setTimeout(() => setFlashIdx(-1), 600);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [assets.length]);
+
+  function Sparkline({ data, up }) {
+    const w = 80, h = 28;
+    const max = Math.max(...data), min = Math.min(...data);
+    const range = max - min || 1;
+    const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+    const areaPts = `0,${h} ${pts} ${w},${h}`;
+    return (
+      <svg width={w} height={h} className="mx-land-spark">
+        <polygon points={areaPts} fill={up ? "rgba(0,201,167,0.08)" : "rgba(255,61,90,0.08)"} />
+        <polyline points={pts} fill="none" stroke={up ? "#00C9A7" : "#ff3d5a"} strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <section className="mx-land-section mx-land-pulse-section" data-section="5" ref={ref} id="markets">
+      <div className="mx-land-pulse-inner">
+        <div className={`mx-land-pulse-card mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}>
+          {assets.map((a, i) => (
+            <div
+              key={i}
+              className={`mx-land-pulse-item ${flashIdx === i ? (flashUp ? "mx-land-flash-up" : "mx-land-flash-down") : ""}`}
+            >
+              <div className="mx-land-pulse-name">{a.name}</div>
+              <div className={`mx-land-pulse-price ${flashIdx === i ? (flashUp ? "mx-land-flash-up" : "mx-land-flash-down") : ""}`}>
+                {a.price}
+              </div>
+              <div className={`mx-land-pulse-change ${a.up ? "up" : "down"}`}>
+                {a.change}
+              </div>
+              <Sparkline data={a.spark} up={a.up} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Section 7: How It Works ── */
 function HowItWorksSection() {
   const [ref, inView] = useInView(0.12);
 
@@ -651,9 +952,9 @@ function HowItWorksSection() {
   ];
 
   return (
-    <section className="mx-land-section" data-section="4" ref={ref} id="intelligence">
+    <section className="mx-land-section" data-section="6" ref={ref} id="intelligence">
       <div className="mx-land-how-inner">
-        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             How it works
@@ -664,7 +965,7 @@ function HowItWorksSection() {
           {steps.map((s, i) => (
             <React.Fragment key={i}>
               <div
-                className={`mx-land-step-card mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}
+                className={`mx-land-step-card mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}
                 style={{ transitionDelay: `${200 + i * 150}ms` }}
               >
                 <div className="mx-land-step-preview" />
@@ -690,7 +991,77 @@ function HowItWorksSection() {
   );
 }
 
-/* ── Section 6: Comparison ── */
+/* ── Section 8: Platform Capabilities Wheel ── */
+function CapabilitiesWheelSection() {
+  const [ref, inView] = useInView(0.12);
+  const [hovered, setHovered] = useState(null);
+
+  const nodes = [
+    { icon: Calendar, label: "Economic Calendar", desc: "500+ monthly events tracked across 195 countries." },
+    { icon: Globe2, label: "Globe View", desc: "Interactive 3D globe with real-time event markers." },
+    { icon: Zap, label: "NQ/ES Briefings", desc: "Pre-event price levels and directional bias for futures." },
+    { icon: Landmark, label: "Central Banks", desc: "Stance tracking for Fed, BOE, ECB, BOJ and more." },
+    { icon: TrendingUp, label: "Surprise Index", desc: "See which regions beat or miss expectations." },
+    { icon: BarChart3, label: "Volatility History", desc: "How NQ and ES reacted to the last 12 releases." },
+    { icon: Bell, label: "Smart Alerts", desc: "Never get caught off guard by high impact events." },
+    { icon: Eye, label: "Watchlist", desc: "Track the countries and events that matter to you." },
+  ];
+
+  const radius = 200;
+
+  return (
+    <section className="mx-land-section" data-section="7" ref={ref}>
+      <div className="mx-land-wheel-inner">
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+          <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
+            <span className="mx-land-section-label-line" />
+            Capabilities
+          </div>
+          <h2 className="mx-land-section-title" style={{ textAlign: "center" }}>
+            One platform. <span className="mx-land-title-accent">Every edge.</span>
+          </h2>
+        </div>
+        <div className="mx-land-wheel-wrap">
+          <div className="mx-land-wheel-hub">
+            <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+              <ellipse cx="8" cy="8" rx="2.8" ry="6.5" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+          </div>
+          {nodes.map((n, i) => {
+            const angle = (i / nodes.length) * 360 - 90;
+            const x = Math.cos((angle * Math.PI) / 180) * radius;
+            const y = Math.sin((angle * Math.PI) / 180) * radius;
+            return (
+              <div
+                key={i}
+                className={`mx-land-wheel-node ${inView ? "mx-land-wheel-node--in" : ""}`}
+                style={{
+                  transform: `translate(${x}px, ${y}px)`,
+                  transitionDelay: `${300 + i * 100}ms`,
+                }}
+                onMouseEnter={() => setHovered(i)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                <div className="mx-land-wheel-spoke" style={{ transform: `rotate(${angle + 90}deg)` }} />
+                <div className="mx-land-wheel-pill">
+                  <n.icon size={14} />
+                  <span>{n.label}</span>
+                </div>
+                {hovered === i && (
+                  <div className="mx-land-wheel-tooltip">{n.desc}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Section 9: Comparison ── */
 function ComparisonSection() {
   const [ref, inView] = useInView(0.12);
 
@@ -704,9 +1075,9 @@ function ComparisonSection() {
   ];
 
   return (
-    <section className="mx-land-section" data-section="5" ref={ref}>
+    <section className="mx-land-section" data-section="8" ref={ref}>
       <div className="mx-land-compare-inner">
-        <div className={`mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
+        <div className={`mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ textAlign: "center" }}>
           <div className="mx-land-section-label" style={{ justifyContent: "center" }}>
             <span className="mx-land-section-label-line" />
             The difference
@@ -715,7 +1086,7 @@ function ComparisonSection() {
             Why traders <span className="mx-land-title-accent">switch to Meridex.</span>
           </h2>
         </div>
-        <div className={`mx-land-compare-table mx-land-anim ${inView ? "mx-land-anim--in" : ""}`} style={{ transitionDelay: "200ms" }}>
+        <div className={`mx-land-compare-table mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`} style={{ transitionDelay: "200ms" }}>
           <div className="mx-land-compare-header">
             <div className="mx-land-compare-col mx-land-compare-before">
               <div className="mx-land-compare-badge mx-land-compare-badge--red">Before Meridex</div>
@@ -742,15 +1113,15 @@ function ComparisonSection() {
   );
 }
 
-/* ── Section 7: Final CTA ── */
+/* ── Section 10: Final CTA ── */
 function FinalSection({ onEnter }) {
   const [ref, inView] = useInView(0.15);
   const [email, setEmail] = useState("");
 
   return (
-    <section className="mx-land-section" data-section="6" ref={ref} id="pricing">
+    <section className="mx-land-section" data-section="9" ref={ref} id="pricing">
       <div className="mx-land-final-glow" />
-      <div className={`mx-land-final-content mx-land-anim ${inView ? "mx-land-anim--in" : ""}`}>
+      <div className={`mx-land-final-content mx-land-anim mx-land-clip ${inView ? "mx-land-anim--in" : ""}`}>
         <div className="mx-land-final-line" />
         <h2 className="mx-land-final-headline">Stop reacting.<br />Start preparing.</h2>
         <p className="mx-land-final-sub">
@@ -766,12 +1137,12 @@ function FinalSection({ onEnter }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <button className="mx-land-btn mx-land-btn--primary" onClick={onEnter}>
-            Submit <ArrowRight size={15} />
+          <button className="mx-land-btn mx-land-btn--primary mx-land-btn--arrow" onClick={onEnter}>
+            Submit <ArrowRight size={15} className="mx-land-btn-arrow-icon" />
           </button>
         </div>
-        <button className="mx-land-btn mx-land-btn--xl mx-land-btn--pulse" onClick={onEnter}>
-          Enter Meridex <ArrowRight size={18} />
+        <button className="mx-land-btn mx-land-btn--xl mx-land-btn--pulse mx-land-btn--arrow" onClick={onEnter}>
+          Enter Meridex <ArrowRight size={18} className="mx-land-btn-arrow-icon" />
         </button>
         <div className="mx-land-final-meta">
           <span><Clock size={13} /> No credit card required</span>
@@ -783,11 +1154,59 @@ function FinalSection({ onEnter }) {
   );
 }
 
+/* ── Footer ── */
+function Footer() {
+  return (
+    <footer className="mx-land-footer">
+      <div className="mx-land-footer-inner">
+        <div className="mx-land-footer-col">
+          <div className="mx-land-footer-brand">
+            <div className="mx-land-nav-mark">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+                <ellipse cx="8" cy="8" rx="2.8" ry="6.5" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M1.5 8h13" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            </div>
+            <span className="mx-land-nav-text">Meri<span>dex</span></span>
+          </div>
+          <p className="mx-land-footer-desc">Global economic intelligence built for serious NQ and ES futures traders.</p>
+          <div className="mx-land-footer-social">
+            <a href="#features"><Send size={16} /></a>
+            <a href="#features"><MessageCircle size={16} /></a>
+            <a href="#features"><GitBranch size={16} /></a>
+          </div>
+        </div>
+        <div className="mx-land-footer-col">
+          <div className="mx-land-footer-heading">Platform</div>
+          <a href="#features">Features</a>
+          <a href="#calendar">Calendar</a>
+          <a href="#markets">Markets</a>
+          <a href="#intelligence">Intelligence</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#features">Changelog</a>
+        </div>
+        <div className="mx-land-footer-col">
+          <div className="mx-land-footer-heading">Legal</div>
+          <a href="#features">Privacy Policy</a>
+          <a href="#features">Terms of Service</a>
+          <a href="#features">Cookie Policy</a>
+          <a href="#features">Contact</a>
+        </div>
+      </div>
+      <div className="mx-land-footer-bottom">
+        Meridex © 2025 · Built for serious traders · All times in GMT
+      </div>
+    </footer>
+  );
+}
+
 /* ── Main ── */
 export function HomePage() {
   const scrollContainerRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [fading, setFading] = useState(false);
+  const [popupMarker, setPopupMarker] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -804,23 +1223,32 @@ export function HomePage() {
     setTimeout(() => navigate("/dashboard"), 800);
   }, [navigate]);
 
+  const handleMarkerClick = useCallback((marker) => {
+    setPopupMarker(marker);
+  }, []);
+
   return (
     <div className="mx-land-page">
       {fading && <div className="mx-land-fade-white" />}
       <div className="mx-land-ambient" />
-      <PersistentGlobe scrollContainerRef={scrollContainerRef} mouseRef={mouseRef} />
+      <PersistentGlobe scrollContainerRef={scrollContainerRef} mouseRef={mouseRef} onMarkerClick={handleMarkerClick} />
       <div className="mx-land-vignette" />
       <ScrollProgress scrollContainerRef={scrollContainerRef} />
       <Navbar />
       <Ticker />
+      <CountdownBanner />
       <div className="mx-land-scroll" ref={scrollContainerRef}>
-        <HeroSection onEnter={handleEnter} />
+        <HeroSection onEnter={handleEnter} onMarkerClick={handleMarkerClick} popupMarker={popupMarker} onPopupClose={() => setPopupMarker(null)} />
         <FeaturesSection />
+        <LivePreviewSection />
         <StatsSection />
         <SocialProofSection />
+        <MarketPulseSection />
         <HowItWorksSection />
+        <CapabilitiesWheelSection />
         <ComparisonSection />
         <FinalSection onEnter={handleEnter} />
+        <Footer />
       </div>
       <BackToTop scrollContainerRef={scrollContainerRef} />
     </div>
