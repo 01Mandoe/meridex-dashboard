@@ -99,11 +99,15 @@ function buildArcs(mode) {
 
 /* ── Persistent Globe ── */
 function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
+  const outerRef = useRef(null);
   const wrapRef = useRef(null);
   const globeRef = useRef(null);
   const cloudRef = useRef(null);
   const starsRef = useRef(null);
+  const callbackRef = useRef(onMarkerClick);
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => { callbackRef.current = onMarkerClick; }, [onMarkerClick]);
 
   useEffect(() => {
     const node = wrapRef.current;
@@ -158,7 +162,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
           el.style.cursor = "pointer";
           el.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (onMarkerClick) onMarkerClick(d);
+            if (callbackRef.current) callbackRef.current(d);
           });
           return el;
         })
@@ -209,7 +213,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
     };
     init();
     return () => { disposed = true; if (node && node._cleanup) node._cleanup(); };
-  }, [onMarkerClick]);
+  }, []);
 
   // rAF loop
   useEffect(() => {
@@ -217,10 +221,10 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
     let lastArcMode = "";
     const update = () => {
       const container = scrollContainerRef.current;
-      const wrap = wrapRef.current;
+      const outer = outerRef.current;
       const g = globeRef.current;
 
-      if (container && wrap) {
+      if (container && outer) {
         const rect = container.getBoundingClientRect();
         const scrollable = container.scrollHeight - window.innerHeight;
         const progress = Math.max(0, Math.min(1, -rect.top / scrollable));
@@ -239,8 +243,8 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
         const mx = mouseRef.current.x;
         const my = mouseRef.current.y;
 
-        wrap.style.transform = `translateX(${tx}vw) scale(${scale})`;
-        wrap.style.opacity = opacity;
+        outer.style.transform = `translateX(${tx}vw) scale(${scale})`;
+        outer.style.opacity = opacity;
 
         if (g && loaded) {
           const lat = lerp(s0.lat, s1.lat, frac) - my * 3;
@@ -279,9 +283,9 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
   }, [loaded, scrollContainerRef, mouseRef]);
 
   return (
-    <div className="mx-land-globe-outer" ref={wrapRef}>
+    <div className="mx-land-globe-outer" ref={outerRef}>
       {!loaded && <div className="mx-land-globe-skeleton" />}
-      <div className="mx-land-globe-inner" style={{ opacity: loaded ? 1 : 0, transition: "opacity 1.5s ease" }} />
+      <div className={`mx-land-globe-inner ${loaded ? "mx-land-globe-inner--loaded" : ""}`} ref={wrapRef} />
       <div className="mx-land-globe-vignette" />
     </div>
   );

@@ -1704,6 +1704,12 @@ button {
 .mx-land-globe-inner {
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.mx-land-globe-inner--loaded {
+  opacity: 1;
 }
 
 /* Globe edge vignette — blends into black */
