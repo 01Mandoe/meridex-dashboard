@@ -1756,10 +1756,10 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  background: rgba(10, 13, 15, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 13, 15, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1E2528;
 }
 
 .mx-land-nav-brand {
@@ -1810,11 +1810,23 @@ button {
   bottom: -4px;
   left: 0;
   right: 0;
-  height: 1.5px;
+  height: 2px;
   background: #00C9A7;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.25s ease;
+}
+
+.mx-land-nav-link--active {
+  color: #e6ecf5;
+}
+
+.mx-land-nav-link--active::after {
+  transform: scaleX(1);
+}
+
+.mx-land-nav-login {
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .mx-land-nav-links a:hover {
@@ -1994,6 +2006,24 @@ button {
   background: #00C9A7;
   color: #06121a;
   box-shadow: 0 0 20px rgba(0, 201, 167, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.mx-land-btn--primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.mx-land-btn--primary:hover::before {
+  left: 100%;
 }
 
 .mx-land-btn--primary:hover {
@@ -2012,6 +2042,22 @@ button {
 .mx-land-btn--ghost:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.mx-land-btn--ghost-teal {
+  border: 1px solid rgba(0, 201, 167, 0.3);
+  color: #00C9A7;
+}
+
+.mx-land-btn--ghost-teal:hover {
+  background: rgba(0, 201, 167, 0.08);
+  border-color: rgba(0, 201, 167, 0.5);
+}
+
+.mx-land-btn--hero {
+  padding: 16px 36px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .mx-land-btn--xl {
@@ -2050,7 +2096,7 @@ button {
   z-index: 0;
   background-image: radial-gradient(circle, #1E2528 1px, transparent 1px);
   background-size: 24px 24px;
-  opacity: 0.5;
+  opacity: 0.6;
   mask-image: radial-gradient(ellipse 80% 80% at 30% 50%, #000 20%, transparent 70%);
   -webkit-mask-image: radial-gradient(ellipse 80% 80% at 30% 50%, #000 20%, transparent 70%);
   pointer-events: none;
@@ -2098,12 +2144,13 @@ button {
 }
 
 .mx-land-headline {
-  font-size: 64px;
+  font-size: clamp(48px, 5vw, 72px);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.05;
   color: #fff;
-  margin: 0 0 20px;
+  margin: 0 0 28px;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
 }
 
 .mx-land-headline-accent {
@@ -2118,7 +2165,7 @@ button {
   color: #8794a8;
   line-height: 1.6;
   margin: 0 0 32px;
-  max-width: 500px;
+  max-width: 480px;
 }
 
 .mx-land-btns {
@@ -2164,40 +2211,139 @@ button {
 }
 
 /* Scroll cue */
+.mx-land-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    rgba(255, 255, 255, 0.01) 2px,
+    rgba(255, 255, 255, 0.01) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.mx-land-depth-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 65% 50%, #0D2E29 0%, transparent 50%, #000 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mx-land-depth-orb {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: #00C9A7;
+  filter: blur(120px);
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mx-land-depth-orb--tr {
+  top: 5%;
+  right: 10%;
+}
+
+.mx-land-depth-orb--bl {
+  bottom: 5%;
+  left: 15%;
+}
+
+.mx-land-stat-pills {
+  position: absolute;
+  left: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.mx-land-stat-pill {
+  width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(10, 13, 15, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  animation: mx-land-float 4s ease-in-out infinite;
+}
+
+.mx-land-stat-pill-icon {
+  color: #00C9A7;
+  flex-shrink: 0;
+}
+
+.mx-land-stat-pill-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.mx-land-stat-pill-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e6ecf5;
+}
+
+.mx-land-stat-pill-label {
+  font-size: 11px;
+  color: #8794a8;
+}
+
+@keyframes mx-land-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 .mx-land-scroll-cue {
   position: absolute;
-  bottom: 30px;
+  bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   z-index: 11;
 }
 
 .mx-land-scroll-cue span {
-  font-size: 9.5px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 2.5px;
   color: #5d6a82;
   font-weight: 600;
 }
 
-.mx-land-scroll-cue-track {
-  width: 22px;
-  height: 36px;
-  border: 1.5px solid rgba(0, 201, 167, 0.25);
-  border-radius: 12px;
-  display: flex;
-  justify-content: center;
-  padding-top: 6px;
+.mx-land-scroll-cue-line {
+  width: 1px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
 }
 
-.mx-land-scroll-cue-dot {
-  width: 3px;
-  height: 6px;
-  border-radius: 2px;
+.mx-land-scroll-cue-circle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   background: #00C9A7;
   box-shadow: 0 0 6px #00C9A7;
 }
@@ -2908,28 +3054,57 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  z-index: 2;
+  z-index: 4;
   position: absolute;
 }
 
 .mx-land-marker-pulse {
   position: absolute;
-  width: 14px;
-  height: 14px;
   border-radius: 50%;
-  animation: mx-land-marker-breathe 2.5s ease-in-out infinite;
+  border: 1.5px solid;
+  opacity: 0;
+  transform: scale(0.3);
+  will-change: transform, opacity;
 }
 
-.mx-land-marker-high .mx-land-marker-dot { background: #ff3d5a; box-shadow: 0 0 6px #ff3d5a; }
-.mx-land-marker-high .mx-land-marker-pulse { background: #ff3d5a; }
-.mx-land-marker-medium .mx-land-marker-dot { background: #ff9f0a; box-shadow: 0 0 6px #ff9f0a; }
-.mx-land-marker-medium .mx-land-marker-pulse { background: #ff9f0a; }
-.mx-land-marker-low .mx-land-marker-dot { background: #1fce89; box-shadow: 0 0 6px #1fce89; }
-.mx-land-marker-low .mx-land-marker-pulse { background: #1fce89; }
+.mx-land-marker-pulse--1 {
+  width: 14px;
+  height: 14px;
+  animation: mx-land-sonar 2.5s ease-out infinite;
+}
+.mx-land-marker-pulse--2 {
+  width: 14px;
+  height: 14px;
+  animation: mx-land-sonar 2.5s ease-out infinite 0.8s;
+}
+.mx-land-marker-pulse--3 {
+  width: 14px;
+  height: 14px;
+  animation: mx-land-sonar 2.5s ease-out infinite 1.6s;
+}
 
-@keyframes mx-land-marker-breathe {
-  0%, 100% { transform: scale(0.5); opacity: 0.4; }
-  50% { transform: scale(1.5); opacity: 0; }
+.mx-land-marker-high .mx-land-marker-dot {
+  background: #ff3d5a;
+  box-shadow: 0 0 8px #ff3d5a, 0 0 16px rgba(255, 61, 90, 0.4);
+}
+.mx-land-marker-high .mx-land-marker-pulse { border-color: #ff3d5a; }
+.mx-land-marker-high::after {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 61, 90, 0.12) 0%, transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+.mx-land-marker-medium .mx-land-marker-dot { background: #ff9f0a; box-shadow: 0 0 8px #ff9f0a; }
+.mx-land-marker-medium .mx-land-marker-pulse { border-color: #ff9f0a; }
+.mx-land-marker-low .mx-land-marker-dot { background: #1fce89; box-shadow: 0 0 6px #1fce89; }
+.mx-land-marker-low .mx-land-marker-pulse { border-color: #1fce89; }
+
+@keyframes mx-land-sonar {
+  0% { transform: scale(0.3); opacity: 0.8; }
+  100% { transform: scale(3.5); opacity: 0; }
 }
 
 /* ── Responsive ── */
@@ -2937,7 +3112,8 @@ button {
   .mx-land-nav { padding: 0 16px; }
   .mx-land-nav-links { display: none; }
   .mx-land-hero-content { padding: 0 24px; }
-  .mx-land-headline { font-size: 42px; }
+  .mx-land-headline { font-size: clamp(36px, 8vw, 48px); }
+  .mx-land-stat-pills { display: none; }
   .mx-land-section-title { font-size: 36px; }
   .mx-land-features-inner { padding: 0 24px; }
   .mx-land-bento-grid { grid-template-columns: 1fr; }
@@ -3032,21 +3208,21 @@ button {
   top: 92px;
   left: 0;
   right: 0;
-  height: 32px;
   z-index: 98;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 10px 24px;
   background: #0D1112;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 12px;
+  border-left: 3px solid #00C9A7;
+  font-size: 13px;
 }
 
 .mx-land-countdown-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: #A0ADB8;
 }
 
@@ -3057,23 +3233,51 @@ button {
 
 .mx-land-countdown-icon {
   color: #ff9f0a;
+  animation: mx-land-icon-pulse 2s ease-in-out infinite;
 }
 
-.mx-land-countdown-timer {
-  font-variant-numeric: tabular-nums;
+@keyframes mx-land-icon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.mx-land-countdown-blocks {
+  display: flex;
+  gap: 12px;
+  margin-left: 4px;
+}
+
+.mx-land-countdown-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.mx-land-countdown-num {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", "Roboto Mono", monospace;
+  font-size: 28px;
   font-weight: 700;
   color: #00C9A7;
   letter-spacing: 0.5px;
-  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mx-land-countdown-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #5a6a7e;
+  margin-top: 2px;
 }
 
 .mx-land-countdown-pill {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #00C9A7;
-  padding: 3px 10px;
-  background: rgba(0, 201, 167, 0.1);
-  border: 1px solid rgba(0, 201, 167, 0.2);
+  color: #ff9f0a;
+  padding: 5px 14px;
+  background: rgba(255, 159, 10, 0.1);
+  border: 1px solid rgba(255, 159, 10, 0.25);
   border-radius: 999px;
   letter-spacing: 0.3px;
 }
@@ -3083,35 +3287,35 @@ button {
   position: absolute;
   bottom: 40px;
   right: 56px;
-  width: 280px;
+  width: 300px;
   background: rgba(17, 21, 24, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-top: 2px solid #00C9A7;
+  border-left: 2px solid #00C9A7;
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   z-index: 12;
 }
 
 .mx-land-activity-header {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: #A0ADB8;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .mx-land-activity-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #1fce89;
-  box-shadow: 0 0 5px #1fce89;
+  box-shadow: 0 0 8px #1fce89;
   animation: mx-land-pulse 1.5s ease-in-out infinite;
 }
 
@@ -3119,7 +3323,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: #A0ADB8;
   line-height: 1.5;
 }
@@ -3801,8 +4005,10 @@ button {
 
 /* ── RESPONSIVE ADDITIONS ── */
 @media (max-width: 900px) {
-  .mx-land-countdown-banner { font-size: 11px; padding: 0 16px; }
+  .mx-land-countdown-banner { font-size: 11px; padding: 8px 16px; }
   .mx-land-countdown-pill { display: none; }
+  .mx-land-countdown-num { font-size: 20px; }
+  .mx-land-countdown-blocks { gap: 8px; }
   .mx-land-activity-feed { display: none; }
   .mx-land-globe-popup { right: 16px; width: 260px; }
   .mx-land-preview-inner { padding: 0 24px; }

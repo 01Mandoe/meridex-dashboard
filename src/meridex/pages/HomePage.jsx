@@ -28,7 +28,7 @@ const TEX = {
 };
 
 const VERT = `varying vec2 vUv; varying vec3 vObjectNormal; void main(){ vUv=uv; vObjectNormal=normalize(normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
-const FRAG = `uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform vec3 sunDirection; uniform float nightBoost; varying vec2 vUv; varying vec3 vObjectNormal; void main(){ vec3 N=normalize(vObjectNormal); vec3 L=normalize(sunDirection); float cosAngle=dot(N,L); float dayMix=smoothstep(-0.10,0.25,cosAngle); vec3 day=texture2D(dayMap,vUv).rgb; float waterMask=texture2D(specMap,vUv).r; vec3 litDay=day*(0.38+0.85*max(cosAngle,0.0)); float spec=pow(max(cosAngle,0.0),32.0)*waterMask*0.55; litDay+=vec3(spec*1.1,spec*1.05,spec*0.95); vec3 night=texture2D(nightMap,vUv).rgb*nightBoost*vec3(1.22,1.02,0.74)+vec3(0.012,0.018,0.030); vec3 color=mix(night,litDay,dayMix); float rim=pow(1.0-abs(cosAngle),4.0)*smoothstep(-0.25,0.05,cosAngle); color+=vec3(0.0,0.45,0.55)*rim*0.30; gl_FragColor=vec4(color,1.0); }`;
+const FRAG = `uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform vec3 sunDirection; uniform float nightBoost; varying vec2 vUv; varying vec3 vObjectNormal; void main(){ vec3 N=normalize(vObjectNormal); vec3 L=normalize(sunDirection); float cosAngle=dot(N,L); float dayMix=smoothstep(-0.15,0.30,cosAngle); vec3 day=texture2D(dayMap,vUv).rgb; float waterMask=texture2D(specMap,vUv).r; vec3 litDay=day*(0.38+0.85*max(cosAngle,0.0)); float spec=pow(max(cosAngle,0.0),32.0)*waterMask*0.55; litDay+=vec3(spec*1.1,spec*1.05,spec*0.95); vec3 nightTex=texture2D(nightMap,vUv).rgb; vec3 night=nightTex*nightBoost*vec3(1.4,1.1,0.8)+vec3(0.008,0.012,0.025); float nightGlow=nightTex.r*nightTex.r*nightBoost*0.5; night+=vec3(nightGlow*0.9,nightGlow*0.6,nightGlow*0.3); vec3 color=mix(night,litDay,dayMix); float rim=pow(1.0-abs(cosAngle),4.0)*smoothstep(-0.25,0.05,cosAngle); color+=vec3(0.0,0.45,0.55)*rim*0.30; gl_FragColor=vec4(color,1.0); }`;
 
 function loadTexture(THREE, url) {
   return new Promise((resolve, reject) => {
@@ -44,52 +44,57 @@ const SECTION_COUNT = 11;
 
 /* ── Globe transform states per section ── */
 const GLOBE_STATES = [
-  { tx: 28, scale: 1.0, opacity: 1.0, lat: 20, lng: -40, altitude: 2.5, arcs: "all" },
-  { tx: 28, scale: 1.1, opacity: 1.0, lat: 30, lng: -30, altitude: 1.8, arcs: "eu_na" },
-  { tx: 20, scale: 1.2, opacity: 0.7, lat: 15, lng: -20, altitude: 2.2, arcs: "all" },
-  { tx: 15, scale: 1.3, opacity: 0.6, lat: 20, lng: -40, altitude: 2.4, arcs: "all" },
-  { tx: 15, scale: 1.2, opacity: 0.5, lat: 20, lng: -40, altitude: 2.6, arcs: "none" },
-  { tx: 20, scale: 1.15, opacity: 0.6, lat: 25, lng: -30, altitude: 2.4, arcs: "all" },
-  { tx: 20, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.5, arcs: "eu_na" },
-  { tx: 20, scale: 1.2, opacity: 0.5, lat: 25, lng: -30, altitude: 2.4, arcs: "all" },
-  { tx: 20, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.5, arcs: "eu_na" },
-  { tx: 20, scale: 1.3, opacity: 0.4, lat: 20, lng: -40, altitude: 2.5, arcs: "none" },
-  { tx: 15, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.2, arcs: "none" },
+  { tx: 22, scale: 1.15, opacity: 1.0, lat: 20, lng: -40, altitude: 2.2, arcs: "all" },
+  { tx: 22, scale: 1.2, opacity: 1.0, lat: 30, lng: -30, altitude: 1.7, arcs: "eu_na" },
+  { tx: 18, scale: 1.25, opacity: 0.7, lat: 15, lng: -20, altitude: 2.0, arcs: "all" },
+  { tx: 15, scale: 1.3, opacity: 0.6, lat: 20, lng: -40, altitude: 2.2, arcs: "all" },
+  { tx: 15, scale: 1.2, opacity: 0.5, lat: 20, lng: -40, altitude: 2.4, arcs: "none" },
+  { tx: 18, scale: 1.15, opacity: 0.6, lat: 25, lng: -30, altitude: 2.2, arcs: "all" },
+  { tx: 18, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.3, arcs: "eu_na" },
+  { tx: 18, scale: 1.2, opacity: 0.5, lat: 25, lng: -30, altitude: 2.2, arcs: "all" },
+  { tx: 18, scale: 1.25, opacity: 0.5, lat: 20, lng: -40, altitude: 2.3, arcs: "eu_na" },
+  { tx: 18, scale: 1.3, opacity: 0.4, lat: 20, lng: -40, altitude: 2.4, arcs: "none" },
+  { tx: 15, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.0, arcs: "none" },
 ];
 
 function buildArcs(mode) {
   const entries = Object.entries(EVENTS);
   const arcs = [];
+  const eligible = entries.filter(([, e]) => e.impact === "high" || e.impact === "medium");
   if (mode === "all") {
-    for (let i = 0; i < entries.length; i++) {
-      for (let j = i + 1; j < entries.length; j++) {
-        if (entries[i][1].impact !== "low" || entries[j][1].impact !== "low") {
-          const opacity = 0.2 + Math.random() * 0.4;
-          arcs.push({
-            startLat: entries[i][1].lat, startLng: entries[i][1].lon,
-            endLat: entries[j][1].lat, endLng: entries[j][1].lon,
-            color: [`rgba(0,201,167,0)`, `rgba(0,201,167,${opacity})`, `rgba(0,201,167,0)`],
-            stroke: 0.3,
-            dashAnimateTime: 1500 + Math.random() * 2500,
-          });
-        }
+    for (let i = 0; i < eligible.length; i++) {
+      for (let j = i + 1; j < eligible.length; j++) {
+        const opacity = 0.3 + Math.random() * 0.35;
+        arcs.push({
+          startLat: eligible[i][1].lat, startLng: eligible[i][1].lon,
+          endLat: eligible[j][1].lat, endLng: eligible[j][1].lon,
+          color: [`rgba(0,201,167,0)`, `rgba(0,201,167,${opacity})`, `rgba(0,201,167,0)`],
+          stroke: 0.5,
+          dashLength: 0.4,
+          dashGap: 0.6,
+          dashAnimateTime: 1200 + Math.random() * 2000,
+          altitude: 0.35 + Math.random() * 0.1,
+        });
       }
     }
   } else if (mode === "eu_na") {
-    const euNa = entries.filter(([, e]) => {
+    const euNa = eligible.filter(([, e]) => {
       const na = e.lat > 15 && e.lat < 70 && e.lng > -170 && e.lng < -50;
       const eu = e.lat > 35 && e.lat < 70 && e.lng > -10 && e.lng < 40;
       return na || eu;
     });
     for (let i = 0; i < euNa.length; i++) {
       for (let j = i + 1; j < euNa.length; j++) {
-        const opacity = 0.2 + Math.random() * 0.4;
+        const opacity = 0.3 + Math.random() * 0.35;
         arcs.push({
           startLat: euNa[i][1].lat, startLng: euNa[i][1].lon,
           endLat: euNa[j][1].lat, endLng: euNa[j][1].lon,
           color: [`rgba(0,201,167,0)`, `rgba(0,201,167,${opacity})`, `rgba(0,201,167,0)`],
-          stroke: 0.3,
-          dashAnimateTime: 1500 + Math.random() * 2500,
+          stroke: 0.5,
+          dashLength: 0.4,
+          dashGap: 0.6,
+          dashAnimateTime: 1200 + Math.random() * 2000,
+          altitude: 0.35 + Math.random() * 0.1,
         });
       }
     }
@@ -132,7 +137,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
         uniforms: {
           dayMap: { value: dayTex }, nightMap: { value: nightTex },
           specMap: { value: specTex }, sunDirection: { value: new THREE.Vector3(sun[0], sun[1], sun[2]) },
-          nightBoost: { value: 2.6 },
+          nightBoost: { value: 3.5 },
         },
         vertexShader: VERT, fragmentShader: FRAG,
       });
@@ -151,13 +156,13 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
         .backgroundColor("rgba(0,0,0,0)")
         .showAtmosphere(true)
         .atmosphereColor("#00C9A7")
-        .atmosphereAltitude(0.12)
+        .atmosphereAltitude(0.18)
         .globeMaterial(material)
         .htmlElementsData(markers)
         .htmlElement((d) => {
           const el = document.createElement("div");
           el.className = `mx-land-marker mx-land-marker-${d.impact}`;
-          el.innerHTML = `<div class="mx-land-marker-pulse"></div><div class="mx-land-marker-dot"></div>`;
+          el.innerHTML = `<div class="mx-land-marker-pulse mx-land-marker-pulse--1"></div><div class="mx-land-marker-pulse mx-land-marker-pulse--2"></div><div class="mx-land-marker-pulse mx-land-marker-pulse--3"></div><div class="mx-land-marker-dot"></div>`;
           el.style.pointerEvents = "auto";
           el.style.cursor = "pointer";
           el.addEventListener("click", (e) => {
@@ -171,8 +176,8 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
         .ringColor((d) => (t) => `${d.color}${Math.floor((1 - t) * 80).toString(16).padStart(2, "0")}`)
         .ringMaxRadius("maxR").ringPropagationSpeed("propSpeed").ringRepeatPeriod("repeatPeriod")
         .arcsData([])
-        .arcColor("color").arcAltitude(0.3)
-        .arcStroke(0.3).arcDashLength(0.4).arcDashGap(0.6)
+        .arcColor("color").arcAltitude(0.35)
+        .arcStroke(0.5).arcDashLength(0.4).arcDashGap(0.6)
         .arcDashAnimateTime(2000)
         .width(node.clientWidth).height(node.clientHeight);
 
@@ -180,7 +185,7 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
       g.controls().autoRotateSpeed = 0.35;
       g.controls().enableZoom = false;
       g.controls().enablePan = false;
-      g.pointOfView({ lat: 20, lng: -40, altitude: 2.5 }, 0);
+      g.pointOfView({ lat: 20, lng: -40, altitude: 2.2 }, 0);
       globeRef.current = g;
 
       const scene = g.scene();
@@ -271,7 +276,8 @@ function PersistentGlobe({ scrollContainerRef, mouseRef, onMarkerClick }) {
               const arcs = buildArcs(arcMode);
               g.arcsData(arcs);
               g.arcDashAnimateTime((d) => d.dashAnimateTime || 2000);
-              g.arcStroke((d) => d.stroke || 0.3);
+              g.arcStroke((d) => d.stroke || 0.5);
+              g.arcAltitude((d) => d.altitude || 0.35);
             }
           }
         }
@@ -330,13 +336,14 @@ function ScrollProgress({ scrollContainerRef }) {
 
 /* ── Countdown hook ── */
 function useCountdown(targetHours) {
-  const [time, setTime] = useState({ h: 0, m: 0, s: 0 });
+  const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
   useEffect(() => {
     const target = Date.now() + targetHours * 3600000;
     const tick = () => {
       const diff = Math.max(0, target - Date.now());
       setTime({
-        h: Math.floor(diff / 3600000),
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
         m: Math.floor((diff % 3600000) / 60000),
         s: Math.floor((diff % 60000) / 1000),
       });
@@ -363,14 +370,14 @@ function Navbar() {
         <span className="mx-land-nav-text">Meri<span>dex</span></span>
       </div>
       <div className="mx-land-nav-links">
-        <a href="#features">Features</a>
+        <a href="#features" className="mx-land-nav-link--active">Features</a>
         <a href="#calendar">Calendar</a>
         <a href="#markets">Markets</a>
         <a href="#intelligence">Intelligence</a>
         <a href="#pricing">Pricing</a>
       </div>
       <div className="mx-land-nav-actions">
-        <button className="mx-land-btn mx-land-btn--ghost mx-land-btn--sm">Login</button>
+        <button className="mx-land-btn mx-land-btn--ghost mx-land-btn--sm mx-land-nav-login">Login</button>
         <button className="mx-land-btn mx-land-btn--primary mx-land-btn--sm mx-land-btn--gradient-border">Get Started</button>
       </div>
     </nav>
@@ -404,14 +411,25 @@ function Ticker() {
 /* ── Countdown Banner ── */
 function CountdownBanner() {
   const t = useCountdown(3.23);
+  const blocks = [
+    { label: "Days", value: String(t.d).padStart(2, "0") },
+    { label: "Hours", value: String(t.h).padStart(2, "0") },
+    { label: "Minutes", value: String(t.m).padStart(2, "0") },
+    { label: "Seconds", value: String(t.s).padStart(2, "0") },
+  ];
   return (
     <div className="mx-land-countdown-banner">
       <div className="mx-land-countdown-left">
-        <AlertTriangle size={13} className="mx-land-countdown-icon" />
+        <AlertTriangle size={15} className="mx-land-countdown-icon" />
         <span>Next high impact event: <strong>US CPI m/m</strong> in</span>
-        <span className="mx-land-countdown-timer">
-          {String(t.h).padStart(2, "0")}:{String(t.m).padStart(2, "0")}:{String(t.s).padStart(2, "0")}
-        </span>
+        <div className="mx-land-countdown-blocks">
+          {blocks.map((b, i) => (
+            <div key={b.label} className="mx-land-countdown-block">
+              <span className="mx-land-countdown-num">{b.value}</span>
+              <span className="mx-land-countdown-label">{b.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="mx-land-countdown-pill">Today: 5 High Impact Events</div>
     </div>
@@ -423,11 +441,11 @@ function ScrollCue() {
   return (
     <div className="mx-land-scroll-cue">
       <span>Scroll</span>
-      <div className="mx-land-scroll-cue-track">
+      <div className="mx-land-scroll-cue-line">
         <motion.div
-          className="mx-land-scroll-cue-dot"
-          animate={{ y: [0, 18, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          className="mx-land-scroll-cue-circle"
+          animate={{ y: [0, 28, 0], opacity: [1, 1, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
     </div>
@@ -463,6 +481,7 @@ function BackToTop({ scrollContainerRef }) {
 function ActivityFeed() {
   const activities = [
     { icon: Eye, text: "A trader in London just checked US CPI briefing" },
+    { icon: Bell, text: "New: Pre-event NQ briefing for US CPI published" },
     { icon: Users, text: "847 traders are viewing the dashboard right now" },
     { icon: Bell, text: "New high impact alert: Fed Chair Powell in 2h 14m" },
   ];
@@ -482,10 +501,10 @@ function ActivityFeed() {
         <motion.div
           key={idx}
           className="mx-land-activity-item"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.4 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
         >
           {(() => {
             const Icon = activities[idx].icon;
@@ -532,11 +551,41 @@ function GlobePopup({ marker, onClose, onEnter }) {
   );
 }
 
+/* ── Floating Stat Pills ── */
+function FloatingStatPills() {
+  const pills = [
+    { icon: Globe2, num: "195+", label: "Countries", delay: 0 },
+    { icon: Zap, num: "14", label: "Events Today", delay: 1.3 },
+    { icon: BarChart3, num: "847", label: "Active Now", delay: 2.6 },
+  ];
+  return (
+    <div className="mx-land-stat-pills">
+      {pills.map((p, i) => {
+        const Icon = p.icon;
+        return (
+          <div key={i} className="mx-land-stat-pill" style={{ animationDelay: `${p.delay}s` }}>
+            <Icon size={16} className="mx-land-stat-pill-icon" />
+            <div className="mx-land-stat-pill-text">
+              <span className="mx-land-stat-pill-num">{p.num}</span>
+              <span className="mx-land-stat-pill-label">{p.label}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Section 1: Hero ── */
 function HeroSection({ onEnter, onMarkerClick, popupMarker, onPopupClose }) {
   return (
     <section className="mx-land-section mx-land-hero" data-section="0">
       <div className="mx-land-dot-grid" />
+      <div className="mx-land-depth-gradient" />
+      <div className="mx-land-depth-orb mx-land-depth-orb--tr" />
+      <div className="mx-land-depth-orb mx-land-depth-orb--bl" />
+      <div className="mx-land-scanlines" />
+      <FloatingStatPills />
       <div className="mx-land-hero-content">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -559,10 +608,10 @@ function HeroSection({ onEnter, onMarkerClick, popupMarker, onPopupClose }) {
           </p>
           <p className="mx-land-hint">Try it — click any marker on the globe.</p>
           <div className="mx-land-btns">
-            <button className="mx-land-btn mx-land-btn--primary mx-land-btn--arrow" onClick={onEnter}>
+            <button className="mx-land-btn mx-land-btn--primary mx-land-btn--arrow mx-land-btn--hero" onClick={onEnter}>
               Enter Meridex <ArrowRight size={15} className="mx-land-btn-arrow-icon" />
             </button>
-            <button className="mx-land-btn mx-land-btn--ghost">
+            <button className="mx-land-btn mx-land-btn--ghost mx-land-btn--ghost-teal">
               See how it works
             </button>
           </div>
