@@ -1,4 +1,3 @@
-// Static dashboard data — extracted from Dashboard component
 export const EVENTS = {
   US: {
     name: "United States",
@@ -47,45 +46,4 @@ export const EVENTS = {
 };
 
 export const IC = { high: "#FF3D5A", medium: "#FF9F0A", low: "#1FCE89" };
-export const IB = {
-  high: "rgba(255,61,90,0.12)",
-  medium: "rgba(255,159,10,0.12)",
-  low: "rgba(31,206,137,0.12)",
-};
-
-export const ASSETS = [
-  { id: "EURUSD", name: "EUR/USD", val: "1.0943", chg: "-0.45%", up: false, spark: [12, 14, 11, 13, 10, 9, 11, 8, 10, 7] },
-  { id: "GBPUSD", name: "GBP/USD", val: "1.2768", chg: "-0.32%", up: false, spark: [10, 12, 9, 11, 8, 10, 7, 9, 6, 8] },
-  { id: "USDJPY", name: "USD/JPY", val: "156.78", chg: "+0.28%", up: true, spark: [6, 8, 7, 10, 9, 12, 11, 13, 12, 14] },
-  { id: "XAUUSD", name: "XAU/USD", val: "2,345", chg: "+0.61%", up: true, spark: [5, 7, 6, 9, 8, 11, 10, 12, 13, 15] },
-  { id: "BTCUSD", name: "BTC/USD", val: "66,542", chg: "-1.12%", up: false, spark: [14, 12, 13, 10, 11, 9, 10, 7, 8, 6] },
-];
-
-export const REGIONS = [
-  { id: "na", name: "North America", impact: "high", score: 78, label: "High" },
-  { id: "eu", name: "Europe", impact: "medium", score: 56, label: "Medium" },
-  { id: "as", name: "Asia", impact: "high", score: 82, label: "High" },
-  { id: "sa", name: "South America", impact: "medium", score: 44, label: "Medium" },
-  { id: "af", name: "Africa", impact: "low", score: 28, label: "Low" },
-  { id: "oc", name: "Oceania", impact: "low", score: 22, label: "Low" },
-];
-
-export const NEWS = [
-  { id: "n1", time: "2m ago", text: "Fed officials signal patience on rate cuts" },
-  { id: "n2", time: "7m ago", text: "Oil prices drop on demand concerns" },
-  { id: "n3", time: "15m ago", text: "China economic data beats expectations" },
-  { id: "n4", time: "22m ago", text: "ECB member speaks on inflation outlook" },
-];
-
-// Pre-computed: stable id for every event row
-export const allEvents = Object.entries(EVENTS)
-  .flatMap(([code, ev]) =>
-    ev.items.map((item, idx) => ({
-      ...item,
-      id: `${code}-${item.time}-${idx}`,
-      country: ev.name,
-      flag: ev.flag,
-      code,
-    }))
-  )
-  .sort((a, b) => a.time.localeCompare(b.time));
+export const IB = { high: "rgba(255,61,90,0.15)", medium: "rgba(255,159,10,0.15)", low: "rgba(31,206,137,0.15)" };
