@@ -16,19 +16,12 @@ import {
   Calendar,
   Newspaper,
   Sparkles,
-  CheckCircle,
-  ChevronRight,
 } from "lucide-react";
 import { EVENTS, IC, IB } from "../data.js";
 
-/* ────────────────────────────────────────────────────────────
-   GLOBE SHADER — custom day/night with vivid city lights
-   ──────────────────────────────────────────────────────────── */
+/* ── GLOBE SHADER (vivid city lights on night side) ── */
 const FRAG = `uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform vec3 sunDirection; uniform float nightBoost; varying vec2 vUv; varying vec3 vObjectNormal; void main(){ vec3 N=normalize(vObjectNormal); vec3 L=normalize(sunDirection); float cosAngle=dot(N,L); float dayMix=smoothstep(-0.15,0.30,cosAngle); vec3 day=texture2D(dayMap,vUv).rgb; float waterMask=texture2D(specMap,vUv).r; vec3 litDay=day*(0.38+0.85*max(cosAngle,0.0)); float spec=pow(max(cosAngle,0.0),32.0)*waterMask*0.55; litDay+=vec3(spec*1.1,spec*1.05,spec*0.95); vec3 nightTex=texture2D(nightMap,vUv).rgb; vec3 night=nightTex*nightBoost*vec3(1.5,1.15,0.75)+vec3(0.006,0.010,0.020); float cityGlow=nightTex.r*nightTex.r*nightBoost*0.6; night+=vec3(cityGlow*1.0,cityGlow*0.65,cityGlow*0.3); vec3 color=mix(night,litDay,dayMix); float rim=pow(1.0-abs(cosAngle),4.0)*smoothstep(-0.25,0.05,cosAngle); color+=vec3(0.0,0.45,0.55)*rim*0.30; gl_FragColor=vec4(color,1.0); }`;
 
-/* ────────────────────────────────────────────────────────────
-   GLOBE CAMERA STATES
-   ──────────────────────────────────────────────────────────── */
 const GLOBE_STATES = [
   { tx: 28, scale: 1.0, opacity: 1.0, lat: 20, lng: -40, altitude: 2.5, arcs: "all" },
   { tx: 28, scale: 1.1, opacity: 1.0, lat: 30, lng: -30, altitude: 1.8, arcs: "eu_na" },
@@ -43,9 +36,6 @@ const GLOBE_STATES = [
   { tx: 15, scale: 1.5, opacity: 0.0, lat: 20, lng: -40, altitude: 3.2, arcs: "none" },
 ];
 
-/* ────────────────────────────────────────────────────────────
-   ARC BUILDER
-   ──────────────────────────────────────────────────────────── */
 function buildArcs(mode) {
   const entries = Object.entries(EVENTS);
   const arcs = [];
@@ -84,9 +74,7 @@ function buildArcs(mode) {
   return arcs;
 }
 
-/* ────────────────────────────────────────────────────────────
-   GLOBE COMPONENT
-   ──────────────────────────────────────────────────────────── */
+/* ── GLOBE COMPONENT ── */
 function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
   const outerRef = useRef(null);
   const globeRef = useRef(null);
@@ -178,7 +166,6 @@ function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
     return () => { if (node && node._cleanup) node._cleanup(); };
   }, [onMarkerClick]);
 
-  /* Scroll-driven camera + arc updates */
   useEffect(() => {
     const node = outerRef.current;
     if (!node) return;
@@ -196,8 +183,7 @@ function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
       node.style.transform = `translateX(${s.tx}%) scale(${s.scale})`;
       node.style.opacity = String(s.opacity);
 
-      const { lat, lng, altitude } = s;
-      g.pointOfView({ lat, lng, altitude }, 0);
+      g.pointOfView({ lat: s.lat, lng: s.lng, altitude: s.altitude }, 0);
 
       if (s.arcs !== node._lastArcMode) {
         node._lastArcMode = s.arcs;
@@ -231,9 +217,7 @@ function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   GLOBE POPUP
-   ──────────────────────────────────────────────────────────── */
+/* ── GLOBE POPUP ── */
 function GlobePopup({ marker, onClose, onEnter }) {
   return (
     <motion.div
@@ -275,9 +259,7 @@ function GlobePopup({ marker, onClose, onEnter }) {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   NAVBAR
-   ──────────────────────────────────────────────────────────── */
+/* ── NAVBAR ── */
 function Navbar() {
   return (
     <nav className="mx-land-nav">
@@ -302,9 +284,7 @@ function Navbar() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   COUNTDOWN HOOK
-   ──────────────────────────────────────────────────────────── */
+/* ── COUNTDOWN HOOK ── */
 function useCountdown(targetHours) {
   const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
   useEffect(() => {
@@ -325,9 +305,7 @@ function useCountdown(targetHours) {
   return time;
 }
 
-/* ────────────────────────────────────────────────────────────
-   COUNTDOWN BANNER
-   ──────────────────────────────────────────────────────────── */
+/* ── COUNTDOWN BANNER ── */
 function CountdownBanner() {
   const t = useCountdown(3.23);
   const blocks = [
@@ -355,9 +333,7 @@ function CountdownBanner() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   ACTIVITY FEED
-   ──────────────────────────────────────────────────────────── */
+/* ── ACTIVITY FEED ── */
 function ActivityFeed() {
   const messages = [
     { icon: Eye, text: "A trader in London just checked US CPI briefing" },
@@ -394,9 +370,7 @@ function ActivityFeed() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   SCROLL CUE
-   ──────────────────────────────────────────────────────────── */
+/* ── SCROLL CUE ── */
 function ScrollCue() {
   return (
     <div className="mx-land-scroll-cue">
@@ -412,9 +386,7 @@ function ScrollCue() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   FLOATING STAT PILLS
-   ──────────────────────────────────────────────────────────── */
+/* ── FLOATING STAT PILLS ── */
 function FloatingStatPills() {
   const pills = [
     { icon: Globe2, num: "195+", label: "Countries", delay: 0 },
@@ -439,10 +411,8 @@ function FloatingStatPills() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   HERO SECTION
-   ──────────────────────────────────────────────────────────── */
-function HeroSection({ onEnter, onMarkerClick, popupMarker, onPopupClose }) {
+/* ── HERO SECTION ── */
+function HeroSection({ onEnter }) {
   return (
     <section className="mx-land-section mx-land-hero" data-section="0">
       <div className="mx-land-dot-grid" />
@@ -500,9 +470,7 @@ function HeroSection({ onEnter, onMarkerClick, popupMarker, onPopupClose }) {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   FEATURES SECTION
-   ──────────────────────────────────────────────────────────── */
+/* ── FEATURES SECTION ── */
 function FeaturesSection() {
   const features = [
     { icon: Calendar, title: "Economic Calendar", desc: "Every high-impact event across 195 countries, filtered for NQ and ES relevance." },
@@ -539,9 +507,7 @@ function FeaturesSection() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   CALENDAR PREVIEW SECTION
-   ──────────────────────────────────────────────────────────── */
+/* ── CALENDAR PREVIEW SECTION ── */
 function CalendarSection() {
   const rows = Object.entries(EVENTS).flatMap(([code, e]) =>
     e.items.map((item) => ({ ...item, country: e.name, flag: e.flag, code }))
@@ -570,9 +536,7 @@ function CalendarSection() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   CTA / FOOTER
-   ──────────────────────────────────────────────────────────── */
+/* ── CTA / FOOTER ── */
 function CTASection({ onEnter }) {
   return (
     <section className="mx-land-section mx-land-cta" id="pricing">
@@ -606,9 +570,7 @@ function Footer() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────
-   MAIN PAGE
-   ──────────────────────────────────────────────────────────── */
+/* ── MAIN PAGE ── */
 export default function HomePage({ onEnter }) {
   const [popupMarker, setPopupMarker] = useState(null);
   const handleMarkerClick = useCallback((d) => setPopupMarker(d), []);
@@ -626,12 +588,7 @@ export default function HomePage({ onEnter }) {
           onEnter={onEnter}
         />
       </div>
-      <HeroSection
-        onEnter={onEnter}
-        onMarkerClick={handleMarkerClick}
-        popupMarker={popupMarker}
-        onPopupClose={handlePopupClose}
-      />
+      <HeroSection onEnter={onEnter} />
       <FeaturesSection />
       <CalendarSection />
       <CTASection onEnter={onEnter} />
