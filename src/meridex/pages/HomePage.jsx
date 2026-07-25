@@ -17,9 +17,8 @@ import {
   Newspaper,
   Sparkles,
 } from "lucide-react";
-import { EVENTS, IC, IB } from "../data.js";
+import { EVENTS } from "../data.js";
 
-/* ── GLOBE SHADER (vivid city lights on night side) ── */
 const FRAG = `uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform vec3 sunDirection; uniform float nightBoost; varying vec2 vUv; varying vec3 vObjectNormal; void main(){ vec3 N=normalize(vObjectNormal); vec3 L=normalize(sunDirection); float cosAngle=dot(N,L); float dayMix=smoothstep(-0.15,0.30,cosAngle); vec3 day=texture2D(dayMap,vUv).rgb; float waterMask=texture2D(specMap,vUv).r; vec3 litDay=day*(0.38+0.85*max(cosAngle,0.0)); float spec=pow(max(cosAngle,0.0),32.0)*waterMask*0.55; litDay+=vec3(spec*1.1,spec*1.05,spec*0.95); vec3 nightTex=texture2D(nightMap,vUv).rgb; vec3 night=nightTex*nightBoost*vec3(1.5,1.15,0.75)+vec3(0.006,0.010,0.020); float cityGlow=nightTex.r*nightTex.r*nightBoost*0.6; night+=vec3(cityGlow*1.0,cityGlow*0.65,cityGlow*0.3); vec3 color=mix(night,litDay,dayMix); float rim=pow(1.0-abs(cosAngle),4.0)*smoothstep(-0.25,0.05,cosAngle); color+=vec3(0.0,0.45,0.55)*rim*0.30; gl_FragColor=vec4(color,1.0); }`;
 
 const GLOBE_STATES = [
@@ -74,7 +73,6 @@ function buildArcs(mode) {
   return arcs;
 }
 
-/* ── GLOBE COMPONENT ── */
 function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
   const outerRef = useRef(null);
   const globeRef = useRef(null);
@@ -158,12 +156,10 @@ function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
     };
     window.addEventListener("resize", onResize);
 
-    node._cleanup = () => {
+    return () => {
       window.removeEventListener("resize", onResize);
       disposed = true;
     };
-
-    return () => { if (node && node._cleanup) node._cleanup(); };
   }, [onMarkerClick]);
 
   useEffect(() => {
@@ -217,7 +213,6 @@ function Globe3D({ onMarkerClick, popupMarker, onPopupClose, onEnter }) {
   );
 }
 
-/* ── GLOBE POPUP ── */
 function GlobePopup({ marker, onClose, onEnter }) {
   return (
     <motion.div
@@ -259,7 +254,6 @@ function GlobePopup({ marker, onClose, onEnter }) {
   );
 }
 
-/* ── NAVBAR ── */
 function Navbar() {
   return (
     <nav className="mx-land-nav">
@@ -284,7 +278,6 @@ function Navbar() {
   );
 }
 
-/* ── COUNTDOWN HOOK ── */
 function useCountdown(targetHours) {
   const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
   useEffect(() => {
@@ -305,7 +298,6 @@ function useCountdown(targetHours) {
   return time;
 }
 
-/* ── COUNTDOWN BANNER ── */
 function CountdownBanner() {
   const t = useCountdown(3.23);
   const blocks = [
@@ -333,7 +325,6 @@ function CountdownBanner() {
   );
 }
 
-/* ── ACTIVITY FEED ── */
 function ActivityFeed() {
   const messages = [
     { icon: Eye, text: "A trader in London just checked US CPI briefing" },
@@ -370,7 +361,6 @@ function ActivityFeed() {
   );
 }
 
-/* ── SCROLL CUE ── */
 function ScrollCue() {
   return (
     <div className="mx-land-scroll-cue">
@@ -386,7 +376,6 @@ function ScrollCue() {
   );
 }
 
-/* ── FLOATING STAT PILLS ── */
 function FloatingStatPills() {
   const pills = [
     { icon: Globe2, num: "195+", label: "Countries", delay: 0 },
@@ -411,7 +400,6 @@ function FloatingStatPills() {
   );
 }
 
-/* ── HERO SECTION ── */
 function HeroSection({ onEnter }) {
   return (
     <section className="mx-land-section mx-land-hero" data-section="0">
@@ -470,7 +458,6 @@ function HeroSection({ onEnter }) {
   );
 }
 
-/* ── FEATURES SECTION ── */
 function FeaturesSection() {
   const features = [
     { icon: Calendar, title: "Economic Calendar", desc: "Every high-impact event across 195 countries, filtered for NQ and ES relevance." },
@@ -507,7 +494,6 @@ function FeaturesSection() {
   );
 }
 
-/* ── CALENDAR PREVIEW SECTION ── */
 function CalendarSection() {
   const rows = Object.entries(EVENTS).flatMap(([code, e]) =>
     e.items.map((item) => ({ ...item, country: e.name, flag: e.flag, code }))
@@ -536,7 +522,6 @@ function CalendarSection() {
   );
 }
 
-/* ── CTA / FOOTER ── */
 function CTASection({ onEnter }) {
   return (
     <section className="mx-land-section mx-land-cta" id="pricing">
@@ -570,7 +555,6 @@ function Footer() {
   );
 }
 
-/* ── MAIN PAGE ── */
 export default function HomePage({ onEnter }) {
   const [popupMarker, setPopupMarker] = useState(null);
   const handleMarkerClick = useCallback((d) => setPopupMarker(d), []);
