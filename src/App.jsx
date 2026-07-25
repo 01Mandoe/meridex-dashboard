@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight, ArrowLeft, AlertTriangle, Eye, Bell, Users, Shield,
   BarChart3, Globe2, Zap, TrendingUp, Calendar, Newspaper, Sparkles,
-  Activity, DollarSign, Clock, ChevronRight, X,
+  Activity, ChevronRight, X, Clock, Target, Layers,
 } from "lucide-react";
-import { EVENTS, MARKERS, IMPACT_COLORS, IMPACT_LABELS } from "./meridex/data.js";
+import { EVENTS, MARKERS, IMPACT_COLORS, IMPACT_LABELS, INSTRUMENTS, PULSE_METRICS } from "./meridex/data.js";
 import DigitalGlobe from "./meridex/components/DigitalGlobe.jsx";
 
 /* ═══ NAVBAR ═══ */
@@ -25,7 +25,7 @@ function Navbar({ onEnter, inDashboard }) {
       <div className="mx-nav-actions">
         <button className="mx-btn mx-btn--ghost mx-btn--sm">Login</button>
         <button className="mx-btn mx-btn--primary mx-btn--sm" onClick={onEnter}>
-          {inDashboard ? "Back to Site" : "Get Started"}
+          {inDashboard ? <><ArrowLeft size={14} /> Back</> : "Get Started"}
         </button>
       </div>
     </nav>
@@ -100,8 +100,7 @@ function ActivityFeed() {
         <span className="mx-activity-dot" /> Live Activity
       </div>
       <AnimatePresence mode="wait">
-        <motion.div
-          key={idx} className="mx-activity-item"
+        <motion.div key={idx} className="mx-activity-item"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
         >
@@ -175,7 +174,7 @@ function Hero({ onEnter }) {
             Economic events, central bank intelligence, and pre-event price briefings —
             all in one command centre.
           </p>
-          <p className="mx-hint">Try it — click any marker on the globe.</p>
+          <p className="mx-hint">Try it — click any marker on the globe to explore.</p>
           <div className="mx-btns">
             <button className="mx-btn mx-btn--primary mx-btn--arrow mx-btn--hero" onClick={onEnter}>
               Enter Meridex <ArrowRight size={16} className="mx-btn-arrow-icon" />
@@ -203,8 +202,8 @@ function Hero({ onEnter }) {
 function MarkerPopup({ marker, onClose, onEnter }) {
   return (
     <motion.div className="mx-marker-popup"
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.25 }}
+      initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.25 }}
     >
       <div className="mx-popup-header">
         <span className="mx-popup-flag">{marker.flag}</span>
@@ -218,7 +217,10 @@ function MarkerPopup({ marker, onClose, onEnter }) {
         {marker.items.map((item, i) => (
           <div key={i} className="mx-popup-event">
             <span className="mx-popup-time">{item.time}</span>
-            <span className="mx-popup-event-name">{item.name}</span>
+            <div className="mx-popup-event-info">
+              <span className="mx-popup-event-name">{item.name}</span>
+              <span className="mx-popup-event-desc">{item.desc}</span>
+            </div>
             <span className="mx-popup-event-fc">{item.forecast || "—"}</span>
           </div>
         ))}
@@ -284,7 +286,10 @@ function CalendarPreview() {
             <span>Time</span><span>Event</span><span>Country</span><span>Impact</span><span>Forecast</span>
           </div>
           {rows.map((r, i) => (
-            <div key={i} className="mx-cal-row">
+            <motion.div key={i} className="mx-cal-row"
+              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+            >
               <span className="mx-cal-time">{r.time}</span>
               <span className="mx-cal-name">{r.name}</span>
               <span className="mx-cal-country">{r.flag} {r.country}</span>
@@ -292,7 +297,7 @@ function CalendarPreview() {
                 {r.impact}
               </span>
               <span className="mx-cal-forecast">{r.forecast || "—"}</span>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -330,8 +335,8 @@ function Footer() {
   );
 }
 
-/* ═══ DASHBOARD PREVIEW (the surprise) ═══ */
-function Sparkline({ data, color, up }) {
+/* ═══ DASHBOARD PREVIEW ═══ */
+function Sparkline({ data, color }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -340,28 +345,22 @@ function Sparkline({ data, color, up }) {
     const y = 100 - ((v - min) / range) * 100;
     return `${x},${y}`;
   }).join(" ");
+  const gid = `grad-${color.replace("#", "")}`;
   return (
     <svg className="mx-spark" viewBox="0 0 100 100" preserveAspectRatio="none">
       <defs>
-        <linearGradient id={`grad-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <polygon points={`0,100 ${points} 100,100`} fill={`url(#grad-${color.replace("#", "")})`} />
+      <polygon points={`0,100 ${points} 100,100`} fill={`url(#${gid})`} />
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
 function DashboardPreview({ onBack }) {
-  const instruments = [
-    { sym: "NQ", name: "Nasdaq 100", price: "18,427.50", change: "+127.30", pct: "+0.70%", up: true, data: [30, 32, 28, 35, 40, 38, 42, 45, 43, 48, 52, 55], color: "#00C9A7" },
-    { sym: "ES", name: "S&P 500", price: "5,234.75", change: "+18.40", pct: "+0.35%", up: true, data: [50, 48, 52, 49, 53, 51, 54, 56, 55, 57, 58, 60], color: "#00C9A7" },
-    { sym: "XAUUSD", name: "Gold", price: "2,341.20", change: "-8.50", pct: "-0.36%", up: false, data: [60, 58, 59, 55, 52, 54, 50, 48, 49, 45, 43, 42], color: "#FF9F0A" },
-    { sym: "EURUSD", name: "Euro / USD", price: "1.0852", change: "+0.0012", pct: "+0.11%", up: true, data: [40, 41, 39, 42, 44, 43, 45, 44, 46, 47, 45, 48], color: "#00C9A7" },
-  ];
-
   const upcomingEvents = Object.entries(EVENTS).flatMap(([code, e]) =>
     e.items.map((item) => ({ ...item, country: e.name, flag: e.flag, affects: e.affects }))
   ).sort((a, b) => a.time.localeCompare(b.time)).slice(0, 6);
@@ -382,9 +381,8 @@ function DashboardPreview({ onBack }) {
       </div>
 
       <div className="mx-dash-grid">
-        {/* Market cards */}
         <div className="mx-dash-cards">
-          {instruments.map((inst, i) => (
+          {INSTRUMENTS.map((inst, i) => (
             <motion.div key={inst.sym} className="mx-dash-card"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
@@ -394,7 +392,7 @@ function DashboardPreview({ onBack }) {
                   <span className="mx-dash-sym">{inst.sym}</span>
                   <span className="mx-dash-name">{inst.name}</span>
                 </div>
-                <Sparkline data={inst.data} color={inst.color} up={inst.up} />
+                <Sparkline data={inst.data} color={inst.color} />
               </div>
               <div className="mx-dash-card-bottom">
                 <span className="mx-dash-price">{inst.price}</span>
@@ -406,7 +404,6 @@ function DashboardPreview({ onBack }) {
           ))}
         </div>
 
-        {/* Upcoming events panel */}
         <motion.div className="mx-dash-panel"
           initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
@@ -430,26 +427,17 @@ function DashboardPreview({ onBack }) {
           ))}
         </motion.div>
 
-        {/* Market pulse bar */}
         <motion.div className="mx-dash-pulse"
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <div className="mx-dash-pulse-header">
-            <Activity size={16} /> Market Pulse
-          </div>
+          <div className="mx-dash-pulse-header"><Activity size={16} /> Market Pulse</div>
           <div className="mx-dash-pulse-bars">
-            {[
-              { label: "Volatility", val: 78, color: "#FF3D5A" },
-              { label: "Momentum", val: 62, color: "#00C9A7" },
-              { label: "Fear / Greed", val: 45, color: "#FF9F0A" },
-              { label: "Liquidity", val: 84, color: "#1FCE89" },
-            ].map((b, i) => (
+            {PULSE_METRICS.map((b, i) => (
               <div key={i} className="mx-dash-pulse-bar">
                 <span className="mx-dash-pulse-label">{b.label}</span>
                 <div className="mx-dash-pulse-track">
-                  <motion.div className="mx-dash-pulse-fill"
-                    style={{ background: b.color }}
+                  <motion.div className="mx-dash-pulse-fill" style={{ background: b.color }}
                     initial={{ width: 0 }} animate={{ width: `${b.val}%` }}
                     transition={{ delay: 0.5 + i * 0.1, duration: 0.8 }}
                   />
@@ -460,7 +448,6 @@ function DashboardPreview({ onBack }) {
           </div>
         </motion.div>
 
-        {/* AI Briefing card */}
         <motion.div className="mx-dash-briefing"
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
@@ -484,6 +471,25 @@ function DashboardPreview({ onBack }) {
           <button className="mx-btn mx-btn--primary mx-btn--sm mx-dash-briefing-btn">
             Read full briefing <ChevronRight size={14} />
           </button>
+        </motion.div>
+
+        <motion.div className="mx-dash-strategy"
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <div className="mx-dash-strategy-header"><Target size={16} /> Trade Setup Scenarios</div>
+          <div className="mx-dash-strategy-grid">
+            <div className="mx-dash-strategy-card mx-dash-strategy-card--bull">
+              <div className="mx-dash-strategy-label"><TrendingUp size={14} /> Bullish Scenario</div>
+              <p>CPI ≤ 0.2% — Long NQ at 18,450. Target 18,600. Stop 18,380.</p>
+              <span className="mx-dash-strategy-rr">R:R 1:2.5</span>
+            </div>
+            <div className="mx-dash-strategy-card mx-dash-strategy-card--bear">
+              <div className="mx-dash-strategy-label"><Layers size={14} /> Bearish Scenario</div>
+              <p>CPI ≥ 0.4% — Short NQ at 18,450. Target 18,250. Stop 18,520.</p>
+              <span className="mx-dash-strategy-rr">R:R 1:2.0</span>
+            </div>
+          </div>
         </motion.div>
       </div>
     </motion.div>
@@ -520,7 +526,7 @@ export default function App() {
             transition={{ duration: 0.3 }}
           >
             <div className="mx-globe-wrapper">
-              <DigitalGlobe onMarkerClick={handleMarkerClick} focusMarker={popupMarker} />
+              <DigitalGlobe onMarkerClick={handleMarkerClick} />
               <AnimatePresence>
                 {popupMarker && (
                   <MarkerPopup marker={popupMarker} onClose={() => setPopupMarker(null)} onEnter={handleEnter} />

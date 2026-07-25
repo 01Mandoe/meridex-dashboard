@@ -2,14 +2,6 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { MARKERS, IMPACT_COLORS } from "../data.js";
 
-const GEO_POINTS = [
-  [1.5, 75, 0], [3, 70, 0], [5, 65, 0], [7, 60, 0], [8, 55, 0], [9, 50, 0],
-  [10, 45, 0], [11, 40, 0], [12, 35, 0], [13, 30, 0], [14, 25, 0], [15, 20, 0],
-  [16, 15, 0], [17, 10, 0], [18, 5, 0], [19, 0, 0], [20, -5, 0], [21, -10, 0],
-  [22, -15, 0], [23, -20, 0], [24, -25, 0], [25, -30, 0], [26, -35, 0], [27, -40, 0],
-  [28, -45, 0], [29, -50, 0], [30, -55, 0], [31, -60, 0], [32, -65, 0], [33, -70, 0],
-];
-
 const CONTINENTS = {
   northAmerica: [
     [-168, 65], [-155, 70], [-140, 72], [-125, 70], [-110, 60], [-100, 55],
@@ -45,309 +37,239 @@ const CONTINENTS = {
 function latLonToVec3(lat, lon, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
-  const x = -radius * Math.sin(phi) * Math.cos(theta);
-  const y = radius * Math.cos(phi);
-  const z = radius * Math.sin(phi) * Math.sin(theta);
-  return new THREE.Vector3(x, y, z);
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
 }
 
-function createDotTexture(size, color, glowColor) {
+function pointInPolygon(point, polygon) {
+  const [x, y] = point;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function makeGlowSprite(color) {
   const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = 64;
+  canvas.width = 128; canvas.height = 128;
   const ctx = canvas.getContext("2d");
-  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, color);
-  grad.addColorStop(0.25, color);
-  grad.addColorStop(0.5, glowColor || color);
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.2, color);
+  grad.addColorStop(0.5, color.replace(")", ",0.3)").replace("rgb", "rgba"));
   grad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
   return tex;
 }
 
-export default function DigitalGlobe({ onMarkerClick, focusMarker }) {
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${r},${g},${b})`;
+}
+
+export default function DigitalGlobe({ onMarkerClick }) {
   const mountRef = useRef(null);
-  const markersRef = useRef([]);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const width = mount.clientWidth || 600;
-    const height = mount.clientHeight || 600;
+    const getWidth = () => mount.clientWidth || 600;
+    const getHeight = () => mount.clientHeight || 600;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(45, getWidth() / getHeight(), 0.1, 1000);
     camera.position.set(0, 0, 8);
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
+    renderer.setSize(getWidth(), getHeight());
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const globeRadius = 2;
+    const R = 2;
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
 
-    // Main globe sphere (dark, semi-transparent)
-    const sphereGeo = new THREE.SphereGeometry(globeRadius, 64, 64);
-    const sphereMat = new THREE.MeshPhongMaterial({
-      color: 0x0a1a1e,
-      transparent: true,
-      opacity: 0.92,
-      shininess: 8,
-    });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    // Dark sphere
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(R, 64, 64),
+      new THREE.MeshPhongMaterial({ color: 0x0a1a1e, transparent: true, opacity: 0.92, shininess: 8 })
+    );
     globeGroup.add(sphere);
 
-    // Wireframe overlay (grid lines)
-    const wireGeo = new THREE.SphereGeometry(globeRadius + 0.01, 36, 24);
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: 0x00c9a7,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.08,
-    });
-    const wire = new THREE.Mesh(wireGeo, wireMat);
-    globeGroup.add(wire);
+    // Wireframe
+    globeGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(R + 0.01, 36, 24),
+      new THREE.MeshBasicMaterial({ color: 0x00c9a7, wireframe: true, transparent: true, opacity: 0.08 })
+    ));
 
-    // Continent dots (procedural)
+    // Continent dots
     const dotGeo = new THREE.SphereGeometry(0.018, 6, 6);
     const dotMat = new THREE.MeshBasicMaterial({ color: 0x00c9a7 });
-    const continentMeshes = [];
-
     Object.values(CONTINENTS).forEach((polygon) => {
-      const points = [];
-      for (let i = 0; i < polygon.length; i++) {
-        const [lon, lat] = polygon[i];
-        points.push(latLonToVec3(lat, lon, globeRadius + 0.005));
-      }
-      // Fill the polygon with dots
-      const minLat = Math.min(...points.map(p => 90 - Math.acos(p.y / globeRadius) * 180 / Math.PI));
-      const maxLat = Math.max(...points.map(p => 90 - Math.acos(p.y / globeRadius) * 180 / Math.PI));
       const minLon = Math.min(...polygon.map(([lon]) => lon));
       const maxLon = Math.max(...polygon.map(([lon]) => lon));
-
-      const step = 2.5;
-      for (let lat = maxLat; lat >= minLat; lat -= step) {
-        for (let lon = minLon; lon <= maxLon; lon += step) {
+      const minLat = Math.min(...polygon.map(([, lat]) => lat));
+      const maxLat = Math.max(...polygon.map(([, lat]) => lat));
+      for (let lat = maxLat; lat >= minLat; lat -= 2.5) {
+        for (let lon = minLon; lon <= maxLon; lon += 2.5) {
           if (pointInPolygon([lon, lat], polygon)) {
             const dot = new THREE.Mesh(dotGeo, dotMat);
-            dot.position.copy(latLonToVec3(lat, lon, globeRadius + 0.005));
+            dot.position.copy(latLonToVec3(lat, lon, R + 0.005));
             globeGroup.add(dot);
-            continentMeshes.push(dot);
           }
         }
       }
     });
 
-    // Latitude/longitude rings
+    // Lat/lon rings
     const ringMat = new THREE.LineBasicMaterial({ color: 0x00c9a7, transparent: true, opacity: 0.06 });
     for (let lat = -60; lat <= 60; lat += 30) {
-      const ringPts = [];
-      for (let lon = 0; lon <= 360; lon += 5) {
-        ringPts.push(latLonToVec3(lat, lon - 180, globeRadius + 0.01));
-      }
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
-      globeGroup.add(new THREE.Line(ringGeo, ringMat));
+      const pts = [];
+      for (let lon = 0; lon <= 360; lon += 5) pts.push(latLonToVec3(lat, lon - 180, R + 0.01));
+      globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ringMat));
     }
     for (let lon = 0; lon < 360; lon += 30) {
-      const ringPts = [];
-      for (let lat = -90; lat <= 90; lat += 5) {
-        ringPts.push(latLonToVec3(lat, lon - 180, globeRadius + 0.01));
-      }
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
-      globeGroup.add(new THREE.Line(ringGeo, ringMat));
+      const pts = [];
+      for (let lat = -90; lat <= 90; lat += 5) pts.push(latLonToVec3(lat, lon - 180, R + 0.01));
+      globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ringMat));
     }
 
     // Atmosphere glow
-    const glowGeo = new THREE.SphereGeometry(globeRadius * 1.15, 32, 32);
     const glowMat = new THREE.ShaderMaterial({
       uniforms: { c: { value: 0.4 }, p: { value: 4.0 }, glowColor: { value: new THREE.Color(0x00c9a7) } },
-      vertexShader: `
-        varying vec3 vNormal; varying vec3 vPosition;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 glowColor; uniform float c; uniform float p;
-        varying vec3 vNormal; varying vec3 vPosition;
-        void main() {
-          vec3 viewDir = normalize(-vPosition);
-          float intensity = pow(c - dot(vNormal, viewDir), p);
-          gl_FragColor = vec4(glowColor, intensity * 0.7);
-        }
-      `,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
-      transparent: true,
+      vertexShader: `varying vec3 vNormal; varying vec3 vPos; void main(){ vNormal=normalize(normalMatrix*normal); vPos=(modelViewMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `uniform vec3 glowColor; uniform float c; uniform float p; varying vec3 vNormal; varying vec3 vPos; void main(){ vec3 v=normalize(-vPos); float i=pow(c-dot(vNormal,v),p); gl_FragColor=vec4(glowColor,i*0.7); }`,
+      side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true,
     });
-    const glow = new THREE.Mesh(glowGeo, glowMat);
-    scene.add(glow);
+    scene.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.15, 32, 32), glowMat));
 
-    // Event markers with pulse
-    const markers = [];
+    // Markers + pulses
     const markerGroup = new THREE.Group();
     scene.add(markerGroup);
+    const markers = [];
 
     MARKERS.forEach((m) => {
-      const color = IMPACT_COLORS[m.impact];
-      const hexColor = new THREE.Color(color);
+      const hex = IMPACT_COLORS[m.impact];
+      const color = new THREE.Color(hex);
+      const pos = latLonToVec3(m.lat, m.lon, R + 0.05);
 
-      // Core dot
-      const coreGeo = new THREE.SphereGeometry(0.04, 12, 12);
-      const coreMat = new THREE.MeshBasicMaterial({ color: hexColor });
-      const core = new THREE.Mesh(coreGeo, coreMat);
-      core.position.copy(latLonToVec3(m.lat, m.lon, globeRadius + 0.05));
+      const core = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 12, 12),
+        new THREE.MeshBasicMaterial({ color })
+      );
+      core.position.copy(pos);
       core.userData = { marker: m, isMarker: true };
       markerGroup.add(core);
-      markers.push({ mesh: core, data: m, pulsePhase: Math.random() * Math.PI * 2 });
 
-      // Pulse ring (sprite)
-      const pulseTex = createDotTexture(64, "rgba(255,255,255,0)", color.replace("#", "rgba(") );
-      const spriteMat = new THREE.SpriteMaterial({
-        map: pulseTex,
-        color: hexColor,
-        transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.position.copy(core.position);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: makeGlowSprite(hexToRgb(hex)),
+        color, transparent: true, opacity: 0.6,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      sprite.position.copy(pos);
       sprite.scale.set(0.3, 0.3, 1);
-      sprite.userData = { isPulse: true, phase: Math.random() * Math.PI * 2, color: hexColor };
+      sprite.userData = { phase: Math.random() * Math.PI * 2 };
       markerGroup.add(sprite);
-      markers[markers.length - 1].pulse = sprite;
+      markers.push({ core, sprite, data: m });
     });
-    markersRef.current = markers;
 
-    // Arcs between high/medium impact markers
+    // Arcs
     const arcGroup = new THREE.Group();
     scene.add(arcGroup);
     const arcs = [];
-    const arcMat = new THREE.LineBasicMaterial({
-      color: 0x00c9a7, transparent: true, opacity: 0.25,
-    });
     for (let i = 0; i < MARKERS.length; i++) {
       for (let j = i + 1; j < MARKERS.length; j++) {
         if (MARKERS[i].impact === "low" && MARKERS[j].impact === "low") continue;
-        const start = latLonToVec3(MARKERS[i].lat, MARKERS[i].lon, globeRadius + 0.05);
-        const end = latLonToVec3(MARKERS[j].lat, MARKERS[j].lon, globeRadius + 0.05);
+        const start = latLonToVec3(MARKERS[i].lat, MARKERS[i].lon, R + 0.05);
+        const end = latLonToVec3(MARKERS[j].lat, MARKERS[j].lon, R + 0.05);
         const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-        mid.normalize().multiplyScalar(globeRadius + 0.8);
+        mid.normalize().multiplyScalar(R + 0.8);
         const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
         const points = curve.getPoints(40);
-        const geo = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geo, arcMat.clone());
-        line.material.opacity = 0.1 + Math.random() * 0.15;
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineBasicMaterial({ color: 0x00c9a7, transparent: true, opacity: 0.1 + Math.random() * 0.15 })
+        );
         arcGroup.add(line);
         arcs.push({ line, phase: Math.random() * Math.PI * 2 });
       }
     }
 
     // Lighting
-    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambient);
-    const dirLight = new THREE.DirectionalLight(0x00c9a7, 0.6);
-    dirLight.position.set(5, 3, 5);
-    scene.add(dirLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-5, -2, -3);
-    scene.add(fillLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dir = new THREE.DirectionalLight(0x00c9a7, 0.6); dir.position.set(5, 3, 5); scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-5, -2, -3); scene.add(fill);
 
-    // Starfield background
+    // Stars
     const starGeo = new THREE.BufferGeometry();
-    const starCount = 800;
-    const starPositions = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount; i++) {
+    const starPos = new Float32Array(800 * 3);
+    for (let i = 0; i < 800; i++) {
       const r = 30 + Math.random() * 20;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      starPositions[i * 3 + 2] = r * Math.cos(phi);
+      const t = Math.random() * Math.PI * 2;
+      const p = Math.acos(2 * Math.random() - 1);
+      starPos[i * 3] = r * Math.sin(p) * Math.cos(t);
+      starPos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t);
+      starPos[i * 3 + 2] = r * Math.cos(p);
     }
-    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.5 });
-    const stars = new THREE.Points(starGeo, starMat);
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.5 }));
     scene.add(stars);
 
-    // Raycaster for click detection
+    // Raycaster
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-
     const handleClick = (e) => {
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(markerGroup.children.filter(c => c.userData.isMarker));
-      if (intersects.length > 0) {
-        onMarkerClick(intersects[0].object.userData.marker);
-      }
+      const hits = raycaster.intersectObjects(markerGroup.children.filter(c => c.userData.isMarker));
+      if (hits.length > 0) onMarkerClick(hits[0].object.userData.marker);
     };
     renderer.domElement.addEventListener("click", handleClick);
 
-    // Auto-rotation + scroll-based camera
+    // Scroll-driven zoom
     let scrollProgress = 0;
-    const onScroll = () => {
-      scrollProgress = Math.min(1, window.scrollY / (window.innerHeight * 2.5));
-    };
+    const onScroll = () => { scrollProgress = Math.min(1, window.scrollY / (window.innerHeight * 2.5)); };
     window.addEventListener("scroll", onScroll, { passive: true });
 
     const clock = new THREE.Clock();
     let animId;
-
     const animate = () => {
-      const elapsed = clock.getElapsedTime();
+      const t = clock.getElapsedTime();
       animId = requestAnimationFrame(animate);
-
-      // Globe rotation
-      globeGroup.rotation.y = elapsed * 0.08;
-      markerGroup.rotation.y = elapsed * 0.08;
-      arcGroup.rotation.y = elapsed * 0.08;
-
-      // Scroll-driven camera zoom
-      const targetZ = 8 - scrollProgress * 3;
-      camera.position.z += (targetZ - camera.position.z) * 0.05;
-
-      // Pulse markers
+      globeGroup.rotation.y = t * 0.08;
+      markerGroup.rotation.y = t * 0.08;
+      arcGroup.rotation.y = t * 0.08;
+      camera.position.z += (8 - scrollProgress * 3 - camera.position.z) * 0.05;
       markers.forEach((m) => {
-        if (m.pulse) {
-          const t = (elapsed + m.pulse.userData.phase) % 2.5;
-          const scale = 0.2 + (t / 2.5) * 1.2;
-          m.pulse.scale.set(scale, scale, 1);
-          m.pulse.material.opacity = Math.max(0, 0.6 - (t / 2.5) * 0.6);
-        }
+        const phase = (t + m.sprite.userData.phase) % 2.5;
+        const s = 0.2 + (phase / 2.5) * 1.2;
+        m.sprite.scale.set(s, s, 1);
+        m.sprite.material.opacity = Math.max(0, 0.6 - (phase / 2.5) * 0.6);
       });
-
-      // Animate arcs opacity
-      arcs.forEach((a) => {
-        a.line.material.opacity = 0.08 + Math.sin(elapsed * 0.5 + a.phase) * 0.06 + 0.06;
-      });
-
-      // Starfield slow rotation
-      stars.rotation.y = elapsed * 0.005;
-
+      arcs.forEach((a) => { a.line.material.opacity = 0.08 + Math.sin(t * 0.5 + a.phase) * 0.06 + 0.06; });
+      stars.rotation.y = t * 0.005;
       renderer.render(scene, camera);
     };
     animate();
 
-    // Resize
     const onResize = () => {
-      if (!mount) return;
-      const w = mount.clientWidth;
-      const h = mount.clientHeight;
-      camera.aspect = w / h;
+      camera.aspect = getWidth() / getHeight();
       camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      renderer.setSize(getWidth(), getHeight());
     };
     window.addEventListener("resize", onResize);
 
@@ -361,23 +283,5 @@ export default function DigitalGlobe({ onMarkerClick, focusMarker }) {
     };
   }, [onMarkerClick]);
 
-  // Focus on a marker when selected
-  useEffect(() => {
-    if (!focusMarker) return;
-    // Could animate camera to marker — keeping simple for now
-  }, [focusMarker]);
-
   return <div className="mx-globe-canvas" ref={mountRef} />;
-}
-
-function pointInPolygon(point, polygon) {
-  const [x, y] = point;
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
-    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
 }

@@ -60,3 +60,17 @@ export const MARKERS = Object.entries(EVENTS).map(([code, e]) => ({
 
 export const IMPACT_COLORS = { high: "#FF3D5A", medium: "#FF9F0A", low: "#1FCE89" };
 export const IMPACT_LABELS = { high: "High Impact", medium: "Medium Impact", low: "Low Impact" };
+
+export const INSTRUMENTS = [
+  { sym: "NQ", name: "Nasdaq 100", price: "18,427.50", change: "+127.30", pct: "+0.70%", up: true, data: [30, 32, 28, 35, 40, 38, 42, 45, 43, 48, 52, 55], color: "#00C9A7" },
+  { sym: "ES", name: "S&P 500", price: "5,234.75", change: "+18.40", pct: "+0.35%", up: true, data: [50, 48, 52, 49, 53, 51, 54, 56, 55, 57, 58, 60], color: "#00C9A7" },
+  { sym: "XAUUSD", name: "Gold", price: "2,341.20", change: "-8.50", pct: "-0.36%", up: false, data: [60, 58, 59, 55, 52, 54, 50, 48, 49, 45, 43, 42], color: "#FF9F0A" },
+  { sym: "EURUSD", name: "Euro / USD", price: "1.0852", change: "+0.0012", pct: "+0.11%", up: true, data: [40, 41, 39, 42, 44, 43, 45, 44, 46, 47, 45, 48], color: "#00C9A7" },
+];
+
+export const PULSE_METRICS = [
+  { label: "Volatility", val: 78, color: "#FF3D5A" },
+  { label: "Momentum", val: 62, color: "#00C9A7" },
+  { label: "Fear / Greed", val: 45, color: "#FF9F0A" },
+  { label: "Liquidity", val: 84, color: "#1FCE89" },
+];
