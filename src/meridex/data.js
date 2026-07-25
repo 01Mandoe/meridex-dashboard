@@ -44,6 +44,3 @@ export const EVENTS = {
   CH: { name: "Switzerland", flag: "🇨🇭", impact: "low", lat: 47, lon: 8, affects: ["EURUSD", "XAUUSD"],
     items: [{ time: "07:30", name: "CPI m/m", impact: "low", forecast: "0.1%", prev: "0.0%", desc: "CHF mover." }] },
 };
-
-export const IC = { high: "#FF3D5A", medium: "#FF9F0A", low: "#1FCE89" };
-export const IB = { high: "rgba(255,61,90,0.15)", medium: "rgba(255,159,10,0.15)", low: "rgba(31,206,137,0.15)" };
